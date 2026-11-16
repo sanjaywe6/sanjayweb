@@ -305,12 +305,15 @@
     let built = false;
 
     // Jagged dissolve edge: x position (CSS px) where the face starts breaking, per y.
+    // It follows the vertical centre line of the face (nose bridge / lips sit at ~46% of the photo width),
+    // with only a small jag so the left half stays whole and the right half turns to code.
+    const EDGE = 0.46;
     const edgeX = (y) => {
       const yn = (y - box.y) / box.h;
       const band = Math.floor(y / 6);
       const hash = Math.abs(Math.sin(band * 12.9898) * 43758.5453) % 1;
-      const jag = 0.03 * Math.sin(yn * 23) + 0.02 * Math.sin(yn * 57 + 1.3) + 0.025 * (hash - 0.5);
-      return box.x + box.w * (0.6 + 0.05 * yn + jag);
+      const jag = 0.012 * Math.sin(yn * 23) + 0.008 * Math.sin(yn * 57 + 1.3) + 0.014 * (hash - 0.5);
+      return box.x + box.w * (EDGE + 0.008 * yn + jag);
     };
 
     function build() {
@@ -364,7 +367,7 @@
       const CELL = 7;
       for (let y = box.y; y < box.y + box.h; y += CELL) {
         const ex = edgeX(y);
-        for (let x = ex - 40; x < ex + 12; x += CELL) {
+        for (let x = ex - 10; x < ex + 26; x += CELL) {
           const r = Math.random();
           if (r < 0.3) { b.fillStyle = '#000'; b.fillRect(x, y, CELL, CELL); }
           else if (r < 0.42) { b.fillStyle = 'rgba(0,0,0,.55)'; b.fillRect(x, y, CELL, CELL); }
@@ -380,7 +383,7 @@
       const tintB = `rgba(${accent().b.join(',')},0.35)`;
       for (let y = box.y; y < box.y + box.h * 0.85; y += CELL) {
         const ex = edgeX(y);
-        for (let x = ex - 48; x < ex + 8; x += CELL) {
+        for (let x = ex - 14; x < ex + 20; x += CELL) {
           if (Math.random() < 0.16) {
             b.fillStyle = Math.random() < 0.7 ? tintA : tintB;
             b.fillRect(x, y, CELL, CELL);
@@ -394,11 +397,11 @@
       const PC = W < 420 ? 7 : 6;
       for (let y = box.y; y < box.y + box.h * 0.9; y += PC) {
         const ex = edgeX(y);
-        for (let x = ex - 30; x < box.x + box.w; x += PC) {
+        for (let x = ex - 8; x < box.x + box.w; x += PC) {
           const [r, g2, bl, a] = sample(x + PC / 2, y + PC / 2);
           if (a < 150) continue;
-          const depth = clamp01((x - ex + 30) / (box.w * 0.42));
-          if (Math.random() > (depth < 0.2 ? 0.75 : 0.5)) continue;
+          const depth = clamp01((x - ex + 8) / (box.w * 0.54));
+          if (Math.random() > (depth < 0.2 ? 0.7 : 0.42)) continue;   // a wider code half, so slightly sparser
           particles.push({
             hx: x, hy: y, r, g: g2, b: bl, depth,
             t: Math.random(),
