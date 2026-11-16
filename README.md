@@ -29,6 +29,7 @@ I'm a cybersecurity engineer working in application security, vulnerability rese
 │   ├── css/style.css           # Styles, animations, responsive layout
 │   ├── js/main.js              # Terminal, navigation, lightbox and other interactions
 │   └── img/
+│       ├── portrait.webp       # Hero portrait (background removed; animated in main.js)
 │       ├── certs/              # Optimized WebP certificate images and thumbnails
 │       ├── favicon.svg         # Favicons and Open Graph image
 │       └── og-image.png

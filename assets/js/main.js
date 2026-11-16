@@ -148,22 +148,25 @@
     if (el.classList.contains('is-in')) fn(); else revealCallbacks.set(el, fn);
   };
 
-  /* ---------------------------------------------------------------- Hero: counters */
-  onReady(() => {
-    if (reduceMotion) return;
-    $$('[data-count]').forEach((el) => {
-      const target = +el.dataset.count;
-      const start = performance.now();
-      const dur = 1400;
-      const tick = (t) => {
-        const p = Math.min(1, (t - start) / dur);
-        el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)));
-        if (p < 1) requestAnimationFrame(tick);
-      };
-      el.textContent = '0';
-      setTimeout(() => requestAnimationFrame(tick), 700);
-    });
-  });
+  /* ---------------------------------------------------------------- Hero: counters (start when the stats scroll into view) */
+  if (!reduceMotion) {
+    const counters = $$('[data-count]');
+    counters.forEach((el) => { el.textContent = '0'; });
+    onReady(() => whenRevealed($('.hero__stats'), () => {
+      counters.forEach((el) => {
+        const target = +el.dataset.count;
+        const dur = 1400;
+        let start = 0;
+        const tick = (t) => {
+          if (!start) start = t;
+          const p = Math.min(1, (t - start) / dur);
+          el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)));
+          if (p < 1) requestAnimationFrame(tick);
+        };
+        setTimeout(() => requestAnimationFrame(tick), 250);
+      });
+    }));
+  }
 
   /* ---------------------------------------------------------------- Hero: role rotator */
   const roleEl = $('#role-rotator');
@@ -201,6 +204,243 @@
       }, 3000);
     });
   }
+
+  /* ---------------------------------------------------------------- Portrait: face breaking into bytes */
+  // The right side of the face is eroded along a jagged edge. Pixel blocks break off that edge,
+  // turn into hex/binary glyphs (coloured from the photo, shifting to green) and stream away to
+  // the right in a continuous loop. Cursor near the bytes scatters them; hovering speeds it up.
+  (() => {
+    const stage = $('#portrait-stage');
+    const img = $('#portrait-img');
+    if (!stage || !img) return;
+    const integrityEl = $('#portrait-integrity');
+    const HEX = '0123456789ABCDEF';
+    const glyph = () => (Math.random() < 0.55
+      ? (Math.random() < 0.5 ? '0' : '1')
+      : HEX[(Math.random() * 16) | 0] + HEX[(Math.random() * 16) | 0]);
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'portrait__canvas';
+    canvas.setAttribute('aria-hidden', 'true');
+    const ctx = canvas.getContext('2d');
+
+    let W = 0; let H = 0; let dpr = 1;
+    let box = null;              // image rect inside the stage (CSS px)
+    let src = null;              // photo scaled to device pixels
+    let base = null;             // eroded photo (static layer)
+    let particles = [];
+    let built = false;
+
+    // Jagged dissolve edge: x position (CSS px) where the face starts breaking, per y.
+    const edgeX = (y) => {
+      const yn = (y - box.y) / box.h;
+      const band = Math.floor(y / 6);
+      const hash = Math.abs(Math.sin(band * 12.9898) * 43758.5453) % 1;
+      const jag = 0.03 * Math.sin(yn * 23) + 0.02 * Math.sin(yn * 57 + 1.3) + 0.025 * (hash - 0.5);
+      return box.x + box.w * (0.6 + 0.05 * yn + jag);
+    };
+
+    function build() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const sr = stage.getBoundingClientRect();
+      const ir = img.getBoundingClientRect();
+      W = sr.width; H = sr.height;
+      if (!W || !H || !ir.width) return false;
+      box = { x: ir.left - sr.left, y: ir.top - sr.top, w: ir.width, h: ir.height };
+      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Photo at device resolution
+      src = document.createElement('canvas');
+      src.width = Math.round(box.w * dpr); src.height = Math.round(box.h * dpr);
+      const sctx = src.getContext('2d');
+      sctx.imageSmoothingQuality = 'high';
+      sctx.drawImage(img, 0, 0, src.width, src.height);
+      let pixels = null;
+      try { pixels = sctx.getImageData(0, 0, src.width, src.height).data; } catch { pixels = null; } // file:// taints canvas
+      const sample = (x, y) => {
+        if (!pixels) {
+          const ex = (x - (box.x + box.w * 0.5)) / (box.w * 0.47);
+          const ey = (y - (box.y + box.h * 0.45)) / (box.h * 0.5);
+          return ex * ex + ey * ey < 1 ? [170, 225, 200, 255] : [0, 0, 0, 0];
+        }
+        const px = Math.min(src.width - 1, Math.max(0, Math.round((x - box.x) * dpr)));
+        const py = Math.min(src.height - 1, Math.max(0, Math.round((y - box.y) * dpr)));
+        const i = (py * src.width + px) * 4;
+        return [pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]];
+      };
+
+      // Static eroded layer
+      base = document.createElement('canvas');
+      base.width = canvas.width; base.height = canvas.height;
+      const b = base.getContext('2d');
+      b.setTransform(dpr, 0, 0, dpr, 0, 0);
+      b.drawImage(src, box.x, box.y, box.w, box.h);
+      b.globalCompositeOperation = 'destination-out';
+      const FADE = Math.max(28, box.w * 0.08);
+      for (let y = box.y; y < box.y + box.h; y += 3) {
+        const ex = edgeX(y);
+        for (let k = 0; k < 8; k++) {
+          b.fillStyle = `rgba(0,0,0,${(k + 1) / 8})`;
+          b.fillRect(ex + (k * FADE) / 8, y, FADE / 8 + 0.6, 3);
+        }
+        b.fillStyle = '#000';
+        b.fillRect(ex + FADE, y, W, 3);
+      }
+      // Broken pixel blocks along the edge
+      const CELL = 7;
+      for (let y = box.y; y < box.y + box.h; y += CELL) {
+        const ex = edgeX(y);
+        for (let x = ex - 40; x < ex + 12; x += CELL) {
+          const r = Math.random();
+          if (r < 0.3) { b.fillStyle = '#000'; b.fillRect(x, y, CELL, CELL); }
+          else if (r < 0.42) { b.fillStyle = 'rgba(0,0,0,.55)'; b.fillRect(x, y, CELL, CELL); }
+        }
+      }
+      // Bottom fade (matches the <img> mask)
+      const g = b.createLinearGradient(0, box.y + box.h * 0.9, 0, box.y + box.h);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)');
+      b.fillStyle = g; b.fillRect(0, box.y + box.h * 0.9, W, box.h * 0.1 + 2);
+      // Energised edge: tint some surviving cells near the break green/cyan
+      b.globalCompositeOperation = 'source-atop';
+      for (let y = box.y; y < box.y + box.h * 0.85; y += CELL) {
+        const ex = edgeX(y);
+        for (let x = ex - 48; x < ex + 8; x += CELL) {
+          if (Math.random() < 0.16) {
+            b.fillStyle = Math.random() < 0.7 ? 'rgba(0,255,157,0.35)' : 'rgba(79,216,240,0.35)';
+            b.fillRect(x, y, CELL, CELL);
+          }
+        }
+      }
+      b.globalCompositeOperation = 'source-over';
+
+      // Particles: one per sampled cell on the broken side of the face
+      particles = [];
+      const PC = W < 420 ? 7 : 6;
+      for (let y = box.y; y < box.y + box.h * 0.9; y += PC) {
+        const ex = edgeX(y);
+        for (let x = ex - 30; x < box.x + box.w; x += PC) {
+          const [r, g2, bl, a] = sample(x + PC / 2, y + PC / 2);
+          if (a < 150) continue;
+          const depth = clamp01((x - ex + 30) / (box.w * 0.42));
+          if (Math.random() > (depth < 0.2 ? 0.75 : 0.5)) continue;
+          particles.push({
+            hx: x, hy: y, r, g: g2, b: bl, depth,
+            t: Math.random(),
+            speed: rand(0.09, 0.24),
+            dist: rand(70, 210) * (0.55 + depth * 0.9),
+            ang: rand(-0.6, 0.28),
+            wob: rand(0, Math.PI * 2),
+            chunk: depth < 0.22,
+            ch: glyph(),
+          });
+        }
+      }
+      return true;
+    }
+
+    const pointer = { x: -1e4, y: -1e4 };
+    let boost = 1; let boostTarget = 1;
+    let glitchUntil = 0; let nextGlitch = 0; let glitchY = 0; let glitchH = 0; let glitchDX = 0;
+
+    function draw(now, dt) {
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalAlpha = 1;
+      ctx.drawImage(base, 0, 0, W, H);
+
+      // Occasional horizontal glitch slice
+      if (!reduceMotion && now > nextGlitch) {
+        glitchUntil = now + rand(90, 160);
+        nextGlitch = now + rand(2400, 5200);
+        glitchY = box.y + rand(0.1, 0.75) * box.h; glitchH = rand(6, 22); glitchDX = rand(-10, 10);
+        if (integrityEl) integrityEl.textContent = String(Math.round(rand(54, 66)));
+      }
+      if (now < glitchUntil) {
+        const sy = glitchY * dpr; const sh = glitchH * dpr;
+        ctx.globalAlpha = 0.9;
+        ctx.drawImage(base, 0, sy, base.width, sh, glitchDX, glitchY, W, glitchH);
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = 'rgba(0,255,157,1)';
+        ctx.fillRect(box.x, glitchY, box.w, 1);
+      }
+
+      ctx.font = '600 10px "Geist Mono", ui-monospace, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const PC = W < 420 ? 7 : 6;
+      const R = 70; const R2 = R * R;
+      for (const p of particles) {
+        p.t += dt * p.speed * boost;
+        if (p.t >= 1) { p.t -= 1; p.ch = glyph(); }
+        else if (Math.random() < 0.01) p.ch = glyph();
+        const t = p.t;
+        const e = t * t * 0.65 + t * 0.35;
+        let x = p.hx + Math.cos(p.ang) * p.dist * e;
+        let y = p.hy + Math.sin(p.ang) * p.dist * e + Math.sin(t * 6 + p.wob) * 3 * t;
+        // cursor scatter
+        const dx = x - pointer.x; const dy = y - pointer.y; const d2 = dx * dx + dy * dy;
+        if (d2 < R2) {
+          const d = Math.sqrt(d2) || 1; const f = (1 - d / R) * 26;
+          x += (dx / d) * f; y += (dy / d) * f;
+        }
+        let a = Math.pow(1 - t, 1.25);
+        if (t < 0.05) a *= t / 0.05;
+        if (p.chunk && t < 0.32) {
+          // a real block of the photo breaking off
+          ctx.globalAlpha = a;
+          ctx.drawImage(src, (p.hx - box.x) * dpr, (p.hy - box.y) * dpr, PC * dpr, PC * dpr, x, y, PC, PC);
+        } else {
+          const m = clamp01(t * 1.7 + p.depth * 0.6);
+          const r = Math.round(p.r + (0 - p.r) * m);
+          const g = Math.round(p.g + (255 - p.g) * m);
+          const bl = Math.round(p.b + (157 - p.b) * m);
+          ctx.globalAlpha = a * 0.95;
+          ctx.fillStyle = `rgb(${Math.max(r, 40)},${Math.max(g, 90)},${Math.max(bl, 80)})`;
+          ctx.fillText(p.ch, x + PC / 2, y + PC / 2);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    let running = false; let visible = true; let last = 0;
+    const loop = (now) => {
+      if (!running) return;
+      requestAnimationFrame(loop);
+      if (document.hidden || !visible) { last = now; return; }
+      const dt = Math.min(0.05, (now - (last || now)) / 1000);
+      last = now;
+      boost += (boostTarget - boost) * Math.min(1, dt * 4);
+      draw(now, dt);
+    };
+
+    function init() {
+      if (!build()) return;
+      if (!built) { stage.appendChild(canvas); built = true; }
+      stage.classList.add('is-live');
+      if (reduceMotion) { draw(0, 0); return; }
+      if (!running) { running = true; requestAnimationFrame(loop); }
+    }
+
+    if (!reduceMotion) {
+      stage.addEventListener('pointermove', (e) => {
+        const r = stage.getBoundingClientRect();
+        pointer.x = e.clientX - r.left; pointer.y = e.clientY - r.top;
+      }, { passive: true });
+      stage.addEventListener('pointerenter', () => { boostTarget = 1.9; });
+      stage.addEventListener('pointerleave', () => { boostTarget = 1; pointer.x = pointer.y = -1e4; });
+      if ('IntersectionObserver' in window) {
+        new IntersectionObserver((entries) => { visible = entries[0].isIntersecting; }).observe(stage);
+      }
+    }
+
+    let rt;
+    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(init, 150); });
+    const start = () => (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(init);
+    if (img.complete && img.naturalWidth) start();
+    else img.addEventListener('load', start, { once: true });
+  })();
 
   /* ---------------------------------------------------------------- Resume (shared on request only) */
   function resumeMailto() {
@@ -498,21 +738,21 @@
       execute(btn.dataset.cmd, { typed: true });
     }));
 
-    // Autoplay intro once the page is ready
-    onReady(async () => {
+    // Autoplay intro once the terminal scrolls into view
+    onReady(() => whenRevealed($('.hero__terminal'), async () => {
       term.body.innerHTML = '';
       if (reduceMotion) {
         await run('whoami');
         await run('cat skills.txt');
       } else {
-        await sleep(900);
+        await sleep(500);
         await execute('whoami', { typed: true, auto: true });
         await sleep(650);
         await execute('cat skills.txt', { typed: true, auto: true });
         if (!term.autoplay) return;
       }
       print('<span class="t-dim">type</span> <span class="t-hi">help</span> <span class="t-dim">or run</span> <span class="t-g">./initialize_portfolio.sh</span>');
-    });
+    }));
   }
 
   /* ---------------------------------------------------------------- Arsenal grep */
