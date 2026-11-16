@@ -24,6 +24,69 @@
     set(k, v) { try { sessionStorage.setItem(k, v); } catch { /* ignore */ } },
   };
 
+  /* ---------------------------------------------------------------- Colour themes */
+  // Themes are CSS palettes keyed by <html data-theme>. Canvases read the accent via accent().
+  const THEMES = {
+    blood: { name: 'Blood.exe', label: 'red' },
+    cyber: { name: 'Cyber.exe', label: 'blue' },
+    matrix: { name: 'Matrix.exe', label: 'green' },
+  };
+  const DEFAULT_THEME = 'cyber';
+  const readRGB = (prop) => getComputedStyle(root).getPropertyValue(prop).trim().split(/[\s,]+/).map(Number);
+  let ACCENT = { a: readRGB('--accent-rgb'), b: readRGB('--accent-2-rgb') };
+  const accent = () => ACCENT;
+  const currentTheme = () => (THEMES[root.dataset.theme] ? root.dataset.theme : DEFAULT_THEME);
+
+  function setTheme(id, { save = true, animate = true } = {}) {
+    if (!THEMES[id]) return false;
+    if (animate && !reduceMotion) {
+      root.classList.add('theme-switching');
+      clearTimeout(setTheme.t);
+      setTheme.t = setTimeout(() => root.classList.remove('theme-switching'), 520);
+    }
+    root.dataset.theme = id;
+    if (save) { try { localStorage.setItem('sg-theme', id); } catch { /* ignore */ } }
+    ACCENT = { a: readRGB('--accent-rgb'), b: readRGB('--accent-2-rgb') };
+    const btn = $('#theme-btn');
+    const name = $('#theme-name');
+    if (name) name.textContent = THEMES[id].name;
+    if (btn) btn.setAttribute('aria-label', `Colour theme: ${THEMES[id].name}. Change theme`);
+    $$('[data-theme-opt]').forEach((o) => o.setAttribute('aria-checked', String(o.dataset.themeOpt === id)));
+    window.dispatchEvent(new CustomEvent('themechange', { detail: { id } }));
+    return true;
+  }
+  setTheme(currentTheme(), { save: false, animate: false });
+
+  (() => {
+    const btn = $('#theme-btn');
+    const menu = $('#theme-menu');
+    if (!btn || !menu) return;
+    const opts = $$('[data-theme-opt]', menu);
+    const open = () => {
+      menu.hidden = false; btn.setAttribute('aria-expanded', 'true');
+      (opts.find((o) => o.getAttribute('aria-checked') === 'true') || opts[0]).focus();
+    };
+    const close = (focusBtn = true) => {
+      if (menu.hidden) return;
+      menu.hidden = true; btn.setAttribute('aria-expanded', 'false');
+      if (focusBtn) btn.focus();
+    };
+    btn.addEventListener('click', () => (menu.hidden ? open() : close()));
+    opts.forEach((o) => o.addEventListener('click', () => {
+      setTheme(o.dataset.themeOpt);
+      close();
+      toast(`theme → ${THEMES[o.dataset.themeOpt].name}`);
+    }));
+    menu.addEventListener('keydown', (e) => {
+      const i = opts.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown') { e.preventDefault(); opts[(i + 1) % opts.length].focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); opts[(i - 1 + opts.length) % opts.length].focus(); }
+      else if (e.key === 'Escape') { e.preventDefault(); close(); }
+      else if (e.key === 'Tab') close(false);
+    });
+    document.addEventListener('click', (e) => { if (!menu.hidden && !e.target.closest('#theme')) close(false); });
+  })();
+
   /* ---------------------------------------------------------------- Boot */
   const readyCallbacks = [];
   const onReady = (fn) => readyCallbacks.push(fn);
@@ -303,13 +366,15 @@
       const g = b.createLinearGradient(0, box.y + box.h * 0.9, 0, box.y + box.h);
       g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)');
       b.fillStyle = g; b.fillRect(0, box.y + box.h * 0.9, W, box.h * 0.1 + 2);
-      // Energised edge: tint some surviving cells near the break green/cyan
+      // Energised edge: tint some surviving cells near the break in the theme's accent colours
       b.globalCompositeOperation = 'source-atop';
+      const tintA = `rgba(${accent().a.join(',')},0.35)`;
+      const tintB = `rgba(${accent().b.join(',')},0.35)`;
       for (let y = box.y; y < box.y + box.h * 0.85; y += CELL) {
         const ex = edgeX(y);
         for (let x = ex - 48; x < ex + 8; x += CELL) {
           if (Math.random() < 0.16) {
-            b.fillStyle = Math.random() < 0.7 ? 'rgba(0,255,157,0.35)' : 'rgba(79,216,240,0.35)';
+            b.fillStyle = Math.random() < 0.7 ? tintA : tintB;
             b.fillRect(x, y, CELL, CELL);
           }
         }
@@ -362,7 +427,7 @@
         ctx.globalAlpha = 0.9;
         ctx.drawImage(base, 0, sy, base.width, sh, glitchDX, glitchY, W, glitchH);
         ctx.globalAlpha = 0.35;
-        ctx.fillStyle = 'rgba(0,255,157,1)';
+        ctx.fillStyle = `rgb(${accent().a.join(',')})`;
         ctx.fillRect(box.x, glitchY, box.w, 1);
       }
 
@@ -371,6 +436,8 @@
       ctx.textBaseline = 'middle';
       const PC = W < 420 ? 7 : 6;
       const R = 70; const R2 = R * R;
+      const [ar, ag, ab] = accent().a;
+      const fr = 25 + ar * 0.35; const fg = 25 + ag * 0.35; const fb = 25 + ab * 0.35;   // brightness floor
       for (const p of particles) {
         p.t += dt * p.speed * boost;
         if (p.t >= 1) { p.t -= 1; p.ch = glyph(); }
@@ -393,11 +460,12 @@
           ctx.drawImage(src, (p.hx - box.x) * dpr, (p.hy - box.y) * dpr, PC * dpr, PC * dpr, x, y, PC, PC);
         } else {
           const m = clamp01(t * 1.7 + p.depth * 0.6);
-          const r = Math.round(p.r + (0 - p.r) * m);
-          const g = Math.round(p.g + (255 - p.g) * m);
-          const bl = Math.round(p.b + (157 - p.b) * m);
+          // photo colour -> theme accent as the byte flies away
+          const r = Math.round(Math.max(fr, p.r + (ar - p.r) * m));
+          const g = Math.round(Math.max(fg, p.g + (ag - p.g) * m));
+          const bl = Math.round(Math.max(fb, p.b + (ab - p.b) * m));
           ctx.globalAlpha = a * 0.95;
-          ctx.fillStyle = `rgb(${Math.max(r, 40)},${Math.max(g, 90)},${Math.max(bl, 80)})`;
+          ctx.fillStyle = `rgb(${r},${g},${bl})`;
           ctx.fillText(p.ch, x + PC / 2, y + PC / 2);
         }
       }
@@ -437,6 +505,7 @@
 
     let rt;
     window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(init, 150); });
+    window.addEventListener('themechange', () => { if (built) init(); });   // re-tint the broken edge
     const start = () => (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(init);
     if (img.complete && img.naturalWidth) start();
     else img.addEventListener('load', start, { once: true });
@@ -621,6 +690,19 @@
       desc: 'jump to a section (about, projects, certs…)',
       run() {},
     },
+    theme: {
+      desc: 'switch colour theme: theme blood | cyber | matrix',
+      run() {
+        const cur = currentTheme();
+        block([
+          '<span class="t-hi">available themes</span>',
+          ...Object.entries(THEMES).map(([id, t]) => [
+            `${id === cur ? '<span class="t-g">●</span>' : '<span class="t-dim">○</span>'} ${t.name}`,
+            `<span class="t-dim">${t.label}${id === cur ? ' (active)' : ''} · run</span> theme ${id}`,
+          ]),
+        ], '14ch');
+      },
+    },
     history: { desc: 'command history', run() { block(term.history.length ? term.history.map((h, i) => `  <span class="t-dim">${String(i + 1).padStart(3)}</span>  ${escapeHTML(h)}`) : ['<span class="t-dim">no history yet</span>']); } },
     date: { desc: 'print current date', run() { print(escapeHTML(new Date().toString()), 't-out'); } },
     clear: { desc: 'clear the screen', run() { term.body.innerHTML = ''; } },
@@ -642,6 +724,7 @@
   const COMPLETIONS = [
     ...Object.keys(COMMANDS).filter((k) => !COMMANDS[k].hidden && !k.includes('<')),
     ...Object.keys(SECTIONS).map((s) => 'cd ' + s), 'echo ',
+    ...Object.keys(THEMES).map((t) => 'theme ' + t),
   ];
 
   async function run(raw) {
@@ -654,6 +737,13 @@
     const lower = input.toLowerCase().replace(/\s+/g, ' ');
     if (lower.startsWith('echo ')) { print(escapeHTML(input.slice(5)), 't-out'); return; }
     if (lower.startsWith('sudo')) { COMMANDS.sudo.run(); return; }
+    const th = lower.match(/^(?:theme\s+|\.\/)(blood|cyber|matrix)(?:\.exe)?$/);
+    if (th) {
+      setTheme(th[1]);
+      print(`<span class="t-g">[✓]</span> loaded ${THEMES[th[1]].name}`, 't-out');
+      return;
+    }
+    if (lower.startsWith('theme ')) { print('<span class="t-r">unknown theme.</span> <span class="t-dim">try</span> theme blood | cyber | matrix', 't-out'); return; }
     const cd = lower.match(/^(?:cd|goto|open)\s+(?:~\/)?([a-z]+)\/?$/);
     if (cd && SECTIONS[cd[1]]) {
       print(`<span class="t-dim">→ navigating to ~/${escapeHTML(cd[1])}</span>`, 't-out');
@@ -857,6 +947,16 @@
       }
     };
 
+    // Colours follow the active theme: bright accent near the cursor, desaturated accent at rest
+    let hot = ''; let dim = '';
+    const setColours = () => {
+      const [r, g, b] = accent().a;
+      hot = `${r}, ${g}, ${b}`;
+      dim = [r, g, b].map((v, i) => Math.round(v * 0.45 + [130, 150, 160][i] * 0.55)).join(', ');
+    };
+    setColours();
+    window.addEventListener('themechange', () => { setColours(); draw(); });
+
     const draw = () => {
       ctx.clearRect(0, 0, W, H);
       ctx.font = FONT;
@@ -867,9 +967,9 @@
           if (!it.ch) continue;
           const a = it.base + it.hi * 0.6;
           if (it.hi > 0.04) {
-            ctx.fillStyle = `rgba(0, 255, 157, ${a.toFixed(3)})`;
+            ctx.fillStyle = `rgba(${hot}, ${a.toFixed(3)})`;
           } else {
-            ctx.fillStyle = `rgba(120, 220, 185, ${a.toFixed(3)})`;
+            ctx.fillStyle = `rgba(${dim}, ${a.toFixed(3)})`;
           }
           ctx.fillText(it.ch, col.x + it.ox, it.y + it.oy);
         }

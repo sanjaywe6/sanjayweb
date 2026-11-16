@@ -1,10 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="cyber">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script>
     document.documentElement.classList.add('js');
+    // Apply the saved colour theme before first paint (default: Cyber.exe)
+    (function () {
+      var t = 'cyber';
+      try { t = localStorage.getItem('sg-theme') || t; } catch (e) {}
+      if (!/^(cyber|matrix|blood)$/.test(t)) t = 'cyber';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
     // Failsafe: if main.js never runs, reveal everything instead of leaving content hidden.
     setTimeout(function () { if (!window.__sgReady) document.documentElement.classList.add('reveal-all', 'is-ready', 'no-boot'); }, 3000);
   </script>
@@ -142,6 +149,32 @@
         </ul>
         <span class="nav__indicator" aria-hidden="true"></span>
       </nav>
+
+      <!-- Colour theme switcher -->
+      <div class="theme" id="theme">
+        <button class="theme__btn mono" id="theme-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="theme-menu" aria-label="Colour theme: Cyber.exe. Change theme">
+          <span class="theme__dot" aria-hidden="true"></span>
+          <span class="theme__name" id="theme-name">Cyber.exe</span>
+          <svg class="icon theme__chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <ul class="theme__menu mono" id="theme-menu" role="menu" aria-label="Colour themes" hidden>
+          <li role="none">
+            <button type="button" role="menuitemradio" aria-checked="false" data-theme-opt="blood">
+              <span class="theme__swatch" style="--sw: 255 45 85" aria-hidden="true"></span>Blood.exe<small>red</small>
+            </button>
+          </li>
+          <li role="none">
+            <button type="button" role="menuitemradio" aria-checked="true" data-theme-opt="cyber">
+              <span class="theme__swatch" style="--sw: 0 174 255" aria-hidden="true"></span>Cyber.exe<small>blue</small>
+            </button>
+          </li>
+          <li role="none">
+            <button type="button" role="menuitemradio" aria-checked="false" data-theme-opt="matrix">
+              <span class="theme__swatch" style="--sw: 0 255 157" aria-hidden="true"></span>Matrix.exe<small>green</small>
+            </button>
+          </li>
+        </ul>
+      </div>
 
       <a class="btn btn--ghost btn--sm nav__cta" href="#resume">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>
