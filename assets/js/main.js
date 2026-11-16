@@ -522,6 +522,352 @@
     else img.addEventListener('load', start, { once: true });
   })();
 
+  /* ---------------------------------------------------------------- Portrait: cyber chakra + face scan */
+  // Behind the face: concentric rings ("chakra") rotating in alternating directions. Nodes on the rings
+  // pass data packets to each other and flash when one arrives. In front: a scan line sweeps the face and
+  // locks onto facial regions; each lock sends a packet out to the rings. Speeds up on hover, pauses
+  // off-screen / in background tabs. Reduced motion: one static frame with every region locked.
+  (() => {
+    const stage = $('#portrait-stage');
+    const img = $('#portrait-img');
+    if (!stage || !img) return;
+    const mk = (cls) => { const c = document.createElement('canvas'); c.className = cls; c.setAttribute('aria-hidden', 'true'); return c; };
+    const back = mk('portrait__chakra');
+    const front = mk('portrait__scan');
+    stage.insertBefore(back, stage.firstChild);
+    stage.appendChild(front);
+    const bctx = back.getContext('2d');
+    const fctx = front.getContext('2d');
+
+    const TAU = Math.PI * 2;
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    const HEX = '0123456789ABCDEF';
+    const hex2 = () => HEX[(Math.random() * 16) | 0] + HEX[(Math.random() * 16) | 0];
+    const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+    const MONO = '"Geist Mono", ui-monospace, monospace';
+
+    // Facial regions as fractions of the photo (646×849): centre x/y and box width/height.
+    // EYE_R sits on the half that has turned to code, so its lock "fails".
+    const FEATURES = [
+      { id: 'FOREHEAD', x: 0.464, y: 0.318, w: 0.30, h: 0.09 },
+      { id: 'EYE_L', x: 0.286, y: 0.483, w: 0.18, h: 0.085 },
+      { id: 'EYE_R', x: 0.62, y: 0.483, w: 0.18, h: 0.085, lost: true },
+      { id: 'NOSE', x: 0.449, y: 0.583, w: 0.13, h: 0.11 },
+      { id: 'MOUTH', x: 0.457, y: 0.69, w: 0.24, h: 0.075 },
+      { id: 'JAW', x: 0.449, y: 0.83, w: 0.40, h: 0.08 },
+      { id: 'EAR_L', x: 0.085, y: 0.612, w: 0.075, h: 0.15 },
+    ];
+    const MESH = [[0, 1], [0, 2], [1, 2], [1, 3], [2, 3], [3, 4], [1, 6], [6, 5], [4, 5], [1, 4], [2, 4]];
+
+    // Rings: radius as a fraction of R, angular speed (rad/s, sign = direction), style, node count
+    const rings = [
+      { r: 1.00, speed: 0.05, kind: 'ticks', n: 3 },
+      { r: 0.93, speed: -0.08, kind: 'glyphs', n: 0 },
+      { r: 0.86, speed: 0.15, kind: 'segments', n: 4 },
+      { r: 0.79, speed: -0.22, kind: 'dashes', n: 3 },
+      { r: 0.72, speed: 0.10, kind: 'core', n: 2 },
+    ].map((d) => ({
+      ...d,
+      a: rand(0, TAU),
+      nodes: Array.from({ length: d.n }, (_, i) => ({ base: (i / d.n) * TAU + rand(-0.4, 0.4), flash: 0 })),
+      glyphs: d.kind === 'glyphs' ? Array.from({ length: 44 }, hex2) : null,
+    }));
+    const nodeRings = rings.filter((r) => r.nodes.length);
+    const segRing = rings.find((r) => r.kind === 'segments');
+
+    let W = 0; let H = 0; let dpr = 1; let R = 0;
+    let C = { x: 0, y: 0 };
+    let box = null;
+    let feats = [];
+
+    function layout() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const cr = back.getBoundingClientRect();
+      const ir = img.getBoundingClientRect();
+      W = cr.width; H = cr.height;
+      if (!W || !H || !ir.width) return false;
+      [back, front].forEach((c) => { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); });
+      bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      box = { x: ir.left - cr.left, y: ir.top - cr.top, w: ir.width, h: ir.height };
+      C = { x: box.x + box.w * 0.455, y: box.y + box.h * 0.5 };   // centred on the face
+      R = box.h * 0.5;
+      feats = FEATURES.map((f) => ({
+        ...f, cx: box.x + f.x * box.w, cy: box.y + f.y * box.h, bw: f.w * box.w, bh: f.h * box.h,
+        t0: -1, conf: (94 + Math.random() * 5.6).toFixed(1),
+      }));
+      return true;
+    }
+
+    const angDist = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+    const nodeAngle = (ring, node) => node.base + ring.a;
+    const nodePos = (ring, node) => {
+      const ang = nodeAngle(ring, node); const rr = ring.r * R;
+      return { x: C.x + Math.cos(ang) * rr, y: C.y + Math.sin(ang) * rr };
+    };
+    const nearestNode = (ring, ang) => ring.nodes.reduce((best, nd) => (angDist(nodeAngle(ring, nd), ang) < angDist(nodeAngle(ring, best), ang) ? nd : best));
+
+    /* -- packets: short curved hops between ring nodes (behind the face) or from a facial region to a ring (in front) */
+    const packets = [];
+    function spawnRingPacket() {
+      const i = (Math.random() * nodeRings.length) | 0;
+      let j = i + (Math.random() < 0.5 ? 1 : -1);
+      if (j < 0 || j >= nodeRings.length) j = i === 0 ? 1 : i - 1;
+      const ra = nodeRings[i]; const rb = nodeRings[j];
+      const na = ra.nodes[(Math.random() * ra.nodes.length) | 0];
+      const nb = nearestNode(rb, nodeAngle(ra, na));   // hop to the closest node so the path stays around the rim
+      na.flash = Math.max(na.flash, 0.6);
+      packets.push({ layer: 'back', from: () => nodePos(ra, na), to: () => nodePos(rb, nb), hit: nb, t: 0, dur: rand(0.9, 1.6), hue: Math.random() < 0.7 ? 'a' : 'b' });
+    }
+    function spawnFeaturePacket(f) {
+      const ang = Math.atan2(f.cy - C.y, f.cx - C.x);
+      const nb = nearestNode(segRing, ang);
+      packets.push({ layer: 'front', from: () => ({ x: f.cx, y: f.cy }), to: () => nodePos(segRing, nb), hit: nb, t: 0, dur: rand(0.8, 1.2), hue: f.lost ? 'b' : 'a' });
+    }
+    const bez = (p0, c, p1, t) => {
+      const u = 1 - t;
+      return { x: u * u * p0.x + 2 * u * t * c.x + t * t * p1.x, y: u * u * p0.y + 2 * u * t * c.y + t * t * p1.y };
+    };
+    function drawPacket(ctx, p) {
+      const p0 = p.from(); const p1 = p.to();
+      const mx = (p0.x + p1.x) / 2; const my = (p0.y + p1.y) / 2;
+      const c = { x: mx + (mx - C.x) * 0.25, y: my + (my - C.y) * 0.25 };   // bow outward from the centre
+      const col = p.hue === 'a' ? accent().a : accent().b;
+      ctx.strokeStyle = rgba(col, 0.14 * (1 - p.t * 0.5));
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.quadraticCurveTo(c.x, c.y, p1.x, p1.y); ctx.stroke();
+      for (let k = 6; k >= 0; k--) {
+        const q = bez(p0, c, p1, Math.max(0, p.t - k * 0.025));
+        ctx.fillStyle = rgba(col, (1 - k / 7) * 0.95);
+        ctx.beginPath(); ctx.arc(q.x, q.y, k === 0 ? 2.3 : 1.4, 0, TAU); ctx.fill();
+      }
+    }
+
+    /* -- back layer: the rings */
+    let clock = 0;
+    function drawBack() {
+      const A = accent().a; const B = accent().b;
+      bctx.clearRect(0, 0, W, H);
+      const glow = bctx.createRadialGradient(C.x, C.y, R * 0.3, C.x, C.y, R * 1.1);
+      glow.addColorStop(0, rgba(A, 0)); glow.addColorStop(0.72, rgba(A, 0.06)); glow.addColorStop(1, rgba(A, 0));
+      bctx.fillStyle = glow;
+      bctx.beginPath(); bctx.arc(C.x, C.y, R * 1.1, 0, TAU); bctx.fill();
+
+      bctx.save();
+      bctx.translate(C.x, C.y);
+      for (const ring of rings) {
+        const r = ring.r * R;
+        bctx.save();
+        bctx.rotate(ring.a);
+        if (ring.kind === 'ticks') {
+          for (let i = 0; i < 120; i++) {
+            const major = i % 10 === 0; const mid = i % 5 === 0;
+            const len = major ? 10 : mid ? 6 : 3;
+            const ang = (i / 120) * TAU;
+            bctx.strokeStyle = rgba(A, major ? 0.55 : mid ? 0.32 : 0.18);
+            bctx.lineWidth = major ? 1.4 : 1;
+            bctx.beginPath();
+            bctx.moveTo(Math.cos(ang) * r, Math.sin(ang) * r);
+            bctx.lineTo(Math.cos(ang) * (r - len), Math.sin(ang) * (r - len));
+            bctx.stroke();
+          }
+          bctx.font = `500 8px ${MONO}`; bctx.textAlign = 'center'; bctx.textBaseline = 'middle';
+          bctx.fillStyle = rgba(A, 0.4);
+          for (let i = 0; i < 12; i++) {
+            bctx.save(); bctx.rotate((i / 12) * TAU); bctx.translate(r + 9, 0); bctx.rotate(Math.PI / 2);
+            bctx.fillText(String(i * 30).padStart(3, '0'), 0, 0); bctx.restore();
+          }
+        } else if (ring.kind === 'glyphs') {
+          bctx.font = `500 9px ${MONO}`; bctx.textAlign = 'center'; bctx.textBaseline = 'middle';
+          const n = ring.glyphs.length; const hot = Math.floor(clock * 7) % n;
+          for (let i = 0; i < n; i++) {
+            const d = Math.min(Math.abs(i - hot), n - Math.abs(i - hot));
+            bctx.fillStyle = d < 3 ? rgba(A, 0.95 - d * 0.22) : rgba(B, 0.26);
+            bctx.save(); bctx.rotate((i / n) * TAU); bctx.translate(r, 0); bctx.rotate(Math.PI / 2);
+            bctx.fillText(ring.glyphs[i], 0, 0); bctx.restore();
+          }
+        } else if (ring.kind === 'segments') {
+          bctx.strokeStyle = rgba(A, 0.12); bctx.lineWidth = 1;
+          bctx.beginPath(); bctx.arc(0, 0, r - 5, 0, TAU); bctx.stroke();
+          bctx.lineWidth = 3; bctx.lineCap = 'round';
+          for (let i = 0; i < 6; i++) {
+            const s = (i / 6) * TAU;
+            bctx.strokeStyle = i % 2 ? rgba(B, 0.5) : rgba(A, 0.62);
+            bctx.beginPath(); bctx.arc(0, 0, r, s + 0.08, s + (TAU / 6) * (i % 3 === 0 ? 0.72 : 0.5)); bctx.stroke();
+          }
+          bctx.lineCap = 'butt';
+        } else if (ring.kind === 'dashes') {
+          bctx.setLineDash([2, 6]); bctx.strokeStyle = rgba(B, 0.45); bctx.lineWidth = 1.2;
+          bctx.beginPath(); bctx.arc(0, 0, r, 0, TAU); bctx.stroke();
+          bctx.setLineDash([]);
+          bctx.strokeStyle = rgba(A, 0.3); bctx.lineWidth = 7;   // sweeping radar arc
+          bctx.beginPath(); bctx.arc(0, 0, r, 0, 0.55); bctx.stroke();
+        } else {
+          bctx.strokeStyle = rgba(A, 0.2); bctx.lineWidth = 1;
+          bctx.beginPath(); bctx.arc(0, 0, r, 0, TAU); bctx.stroke();
+          bctx.strokeStyle = rgba(A, 0.08);   // {12/5} star: the chakra's geometry
+          bctx.beginPath();
+          for (let i = 0; i <= 12; i++) {
+            const ang = ((i * 5) % 12) / 12 * TAU;
+            const x = Math.cos(ang) * r; const y = Math.sin(ang) * r;
+            if (i === 0) bctx.moveTo(x, y); else bctx.lineTo(x, y);
+          }
+          bctx.stroke();
+        }
+        // nodes ride on their ring
+        for (const nd of ring.nodes) {
+          const x = Math.cos(nd.base) * r; const y = Math.sin(nd.base) * r;
+          bctx.save(); bctx.translate(x, y); bctx.rotate(Math.PI / 4);
+          bctx.fillStyle = rgba(A, 0.6 + nd.flash * 0.4);
+          bctx.fillRect(-2.6, -2.6, 5.2, 5.2);
+          bctx.restore();
+          if (nd.flash > 0.02) {
+            bctx.strokeStyle = rgba(A, nd.flash * 0.7); bctx.lineWidth = 1;
+            bctx.beginPath(); bctx.arc(x, y, 4 + (1 - nd.flash) * 14, 0, TAU); bctx.stroke();
+          }
+        }
+        bctx.restore();
+      }
+      bctx.restore();
+      for (const p of packets) if (p.layer === 'back') drawPacket(bctx, p);
+    }
+
+    /* -- front layer: scan line, facial-region locks and mesh */
+    const CYCLE = 7.5; const SWEEP = 2.6;
+    let cycleIdx = -1;
+    const strength = (f, ct, still) => {
+      if (still) return 1;
+      if (f.t0 < 0) return 0;
+      return clamp01((clock - f.t0) / 0.3) * clamp01((CYCLE - ct) / 0.6);
+    };
+    function drawFront(still) {
+      const A = accent().a; const B = accent().b;
+      fctx.clearRect(0, 0, W, H);
+      const ct = clock % CYCLE;
+      const ci = Math.floor(clock / CYCLE);
+      if (ci !== cycleIdx) { cycleIdx = ci; feats.forEach((f) => { f.t0 = -1; f.conf = (94 + Math.random() * 5.6).toFixed(1); }); }
+
+      // scan line
+      if (!still) {
+        const p = clamp01(ct / SWEEP);
+        if (p < 1) {
+          const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+          const top = box.y + box.h * 0.22; const bot = box.y + box.h * 0.92;
+          const sy = top + (bot - top) * e;
+          const x0 = box.x + box.w * 0.03; const x1 = box.x + box.w * 0.97;
+          const band = fctx.createLinearGradient(0, sy - 46, 0, sy);
+          band.addColorStop(0, rgba(A, 0)); band.addColorStop(1, rgba(A, 0.13));
+          fctx.fillStyle = band; fctx.fillRect(x0, sy - 46, x1 - x0, 46);
+          fctx.strokeStyle = rgba(A, 0.75); fctx.lineWidth = 1;
+          fctx.beginPath(); fctx.moveTo(x0, sy); fctx.lineTo(x1, sy); fctx.stroke();
+          for (const f of feats) {
+            if (f.t0 < 0 && sy >= f.cy) { f.t0 = clock; spawnFeaturePacket(f); }
+          }
+        }
+      }
+
+      // mesh between regions
+      const S = feats.map((f) => strength(f, ct, still));
+      fctx.lineWidth = 1;
+      for (const [i, j] of MESH) {
+        const a = feats[i]; const b = feats[j];
+        fctx.strokeStyle = rgba(A, 0.07 + 0.22 * Math.min(S[i], S[j]));
+        fctx.beginPath(); fctx.moveTo(a.cx, a.cy); fctx.lineTo(b.cx, b.cy); fctx.stroke();
+      }
+
+      // region locks (small portraits get shorter labels so they don't collide)
+      const compact = box.w < 380;
+      fctx.font = `600 ${compact ? 8 : 9.5}px ${MONO}`; fctx.textBaseline = 'alphabetic'; fctx.textAlign = 'left';
+      feats.forEach((f, i) => {
+        const s = S[i];
+        const col = f.lost ? B : A;
+        fctx.fillStyle = rgba(col, 0.35 + s * 0.5);
+        fctx.beginPath(); fctx.arc(f.cx, f.cy, 1.8, 0, TAU); fctx.fill();
+        if (s <= 0.01) return;
+        let alpha = s * 0.9;
+        if (f.lost && Math.random() < 0.18) alpha *= 0.25;   // the code-side eye glitches
+        const k = 1 + (1 - clamp01((clock - f.t0) / 0.3)) * 0.6 * (still ? 0 : 1);
+        const hw = (f.bw * k) / 2; const hh = (f.bh * k) / 2; const L = Math.min(f.bw, f.bh) * 0.32;
+        fctx.strokeStyle = rgba(col, alpha); fctx.lineWidth = 1.4;
+        fctx.beginPath();
+        for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+          const x = f.cx + sx * hw; const y = f.cy + sy * hh;
+          fctx.moveTo(x - sx * L, y); fctx.lineTo(x, y); fctx.lineTo(x, y - sy * L);
+        }
+        fctx.stroke();
+        fctx.strokeStyle = rgba(col, alpha * 0.7); fctx.lineWidth = 1;   // centre crosshair
+        fctx.beginPath();
+        fctx.moveTo(f.cx - 5, f.cy); fctx.lineTo(f.cx - 2, f.cy); fctx.moveTo(f.cx + 2, f.cy); fctx.lineTo(f.cx + 5, f.cy);
+        fctx.moveTo(f.cx, f.cy - 5); fctx.lineTo(f.cx, f.cy - 2); fctx.moveTo(f.cx, f.cy + 2); fctx.lineTo(f.cx, f.cy + 5);
+        fctx.stroke();
+        if (compact && f.id === 'EAR_L') return;
+        const full = compact ? (f.lost ? `${f.id} ✕` : f.id) : f.lost ? `${f.id} · SIGNAL LOST` : `${f.id} ${f.conf}%`;
+        const shown = still ? full : full.slice(0, Math.ceil(clamp01((clock - f.t0) / 0.5) * full.length));
+        if (!shown) return;
+        const tx = f.cx - hw; const ty = f.cy - hh - 6;
+        const tw = fctx.measureText(shown).width;
+        fctx.fillStyle = `rgba(8,11,16,${0.62 * s})`;
+        fctx.fillRect(tx - 3, ty - (compact ? 8.5 : 10), tw + 6, compact ? 11 : 13);
+        fctx.fillStyle = rgba(col, Math.min(1, alpha + 0.1));
+        fctx.fillText(shown, tx, ty);
+      });
+
+      for (const p of packets) if (p.layer === 'front') drawPacket(fctx, p);
+    }
+
+    /* -- simulation */
+    let spawnIn = 0.3;
+    function step(dt, boost) {
+      clock += dt;
+      for (const ring of rings) {
+        ring.a += ring.speed * dt * boost;
+        for (const nd of ring.nodes) nd.flash = Math.max(0, nd.flash - dt * 1.4);
+        if (ring.glyphs && Math.random() < dt * 6) ring.glyphs[(Math.random() * ring.glyphs.length) | 0] = hex2();
+      }
+      spawnIn -= dt * boost;
+      if (spawnIn <= 0) { spawnRingPacket(); spawnIn = rand(0.22, 0.6); }
+      for (let i = packets.length - 1; i >= 0; i--) {
+        const p = packets[i];
+        p.t += (dt * boost) / p.dur;
+        if (p.t >= 1) { p.hit.flash = 1; packets.splice(i, 1); }
+      }
+    }
+
+    let running = false; let visible = true; let last = 0; let boost = 1; let boostTarget = 1;
+    const loop = (now) => {
+      if (!running) return;
+      requestAnimationFrame(loop);
+      if (document.hidden || !visible) { last = now; return; }
+      const dt = Math.min(0.05, (now - (last || now)) / 1000);
+      last = now;
+      boost += (boostTarget - boost) * Math.min(1, dt * 3);
+      step(dt, boost);
+      drawBack();
+      drawFront(false);
+    };
+
+    function init() {
+      if (!layout()) return;
+      if (reduceMotion) { drawBack(); drawFront(true); return; }
+      if (!running) { running = true; requestAnimationFrame(loop); }
+    }
+
+    if (!reduceMotion) {
+      stage.addEventListener('pointerenter', () => { boostTarget = 2; });
+      stage.addEventListener('pointerleave', () => { boostTarget = 1; });
+      if ('IntersectionObserver' in window) {
+        new IntersectionObserver((entries) => { visible = entries[0].isIntersecting; }).observe(stage);
+      }
+    }
+    let rt;
+    window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(init, 150); });
+    window.addEventListener('themechange', () => { if (reduceMotion && box) { drawBack(); drawFront(true); } });
+    const start = () => (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(init);
+    if (img.complete && img.naturalWidth) start();
+    else img.addEventListener('load', start, { once: true });
+  })();
+
   /* ---------------------------------------------------------------- Resume (shared on request only) */
   function resumeMailto() {
     const subject = encodeURIComponent('Resume request');

@@ -370,6 +370,7 @@ em { font-style: normal; }
 /* 9. Hero ------------------------------------------------------------------ */
 .hero {
   position: relative;
+  overflow-x: clip;   /* the portrait's rings may bleed past the viewport edge on small screens */
   padding: calc(var(--nav-h) + clamp(16px, 3vh, 40px)) 0 clamp(64px, 10vh, 112px);
 }
 /* First screen: copy + portrait fill the viewport */
@@ -431,7 +432,12 @@ em { font-style: normal; }
           mask-image: linear-gradient(to bottom, #000 90%, transparent);
 }
 .portrait__stage.is-live .portrait__img { opacity: 0; }   /* canvas takes over once ready */
+.portrait__img, .portrait__canvas { z-index: 1; }
 .portrait__canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* Cyber chakra (behind the face) and face scan (in front). Both bleed past the photo so the rings fit. */
+.portrait__chakra, .portrait__scan { position: absolute; left: -14%; top: -6%; width: 128%; height: 112%; pointer-events: none; }
+.portrait__chakra { z-index: 0; }
+.portrait__scan { z-index: 2; }
 .portrait__hud { position: absolute; z-index: 2; font-size: 11px; color: var(--muted); letter-spacing: 0.04em; pointer-events: none; }
 .portrait__hud--tl { top: -26px; left: 2px; }
 .portrait__hud--br { right: 2%; bottom: 10%; color: var(--accent); }
