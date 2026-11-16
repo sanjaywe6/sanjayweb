@@ -767,7 +767,7 @@
       scrollToEl($('#' + SECTIONS[cd[1]]));
       return;
     }
-    if (lower === 'cd' || lower === 'cd ~' || lower === 'cd ..') { print('<span class="t-dim">usage: cd about | arsenal | experience | projects | writeups | certs | research | resume | contact</span>', 't-out'); return; }
+    if (lower === 'cd' || lower === 'cd ~' || lower === 'cd ..') { print('<span class="t-dim">usage: cd about | arsenal | research | projects | writeups | experience | certs | resume | contact</span>', 't-out'); return; }
 
     const key = COMMANDS[lower] ? lower : ALIASES[lower];
     const cmd = key && COMMANDS[key];
@@ -1086,13 +1086,26 @@
   });
 
   /* ---------------------------------------------------------------- Write-ups carousel */
-  // Clones the cards once so the track can loop seamlessly (CSS animates it by -50%).
-  // Pauses on hover/focus, via the pause button, and while off-screen. Reduced motion: plain scrollable row.
+  // Clones the cards once so the track loops seamlessly, then moves it with rAF so the flow can change
+  // direction smoothly. The side arrows work like prev/next: ‹ brings earlier cards in (flow right), › brings
+  // later cards in (flow left), each with a short push that way. It eases to a
+  // stop on hover/focus, via the pause button, and while off-screen.
+  // Reduced motion: no auto-flow; the row scrolls natively and the arrows step one card at a time.
   (() => {
     const car = $('#wcar');
     const track = car && $('.wcar__track', car);
     const toggle = $('#wcar-toggle');
-    if (!track || reduceMotion) return;
+    const arrows = $$('[data-wcar-dir]');
+    if (!track) return;
+
+    const cardStep = () => { const c = $('.wcard', track); return c ? c.getBoundingClientRect().width + 16 : 320; };
+    arrows.forEach((b) => { b.hidden = false; });
+
+    if (reduceMotion) {
+      arrows.forEach((b) => b.addEventListener('click', () => car.scrollBy({ left: cardStep() * -Number(b.dataset.wcarDir), behavior: 'auto' })));
+      return;
+    }
+
     $$('.wcard', track).forEach((li) => {
       const clone = li.cloneNode(true);
       clone.setAttribute('aria-hidden', 'true');
@@ -1100,26 +1113,65 @@
       $$('a', clone).forEach((a) => a.setAttribute('tabindex', '-1'));
       track.appendChild(clone);
     });
-    const SPEED = 45;   // px per second
-    const setSpeed = () => car.style.setProperty('--wcar-dur', Math.max(30, Math.round(track.scrollWidth / 2 / SPEED)) + 's');
-    setSpeed();
-    window.addEventListener('resize', setSpeed);
     car.scrollLeft = 0;
     car.classList.add('is-live');
+
+    const SPEED = 45;        // cruising speed, px per second
+    const EASE = 3;          // how quickly velocity settles (per second)
+    let dir = -1;            // -1 = cards flow left, 1 = cards flow right
+    let x = 0; let v = 0; let half = 0;
+    let hovered = false; let paused = false; let visible = true;
+    const measure = () => { half = track.scrollWidth / 2 + 8; };   // one full set + half the gap
+    measure();
+    window.addEventListener('resize', measure);
+
+    car.addEventListener('pointerenter', () => { hovered = true; });
+    car.addEventListener('pointerleave', () => { hovered = false; });
+    car.addEventListener('focusin', () => { hovered = true; });
+    car.addEventListener('focusout', () => { hovered = car.matches(':hover'); });
+
+    arrows.forEach((b) => b.addEventListener('click', () => {
+      dir = Number(b.dataset.wcarDir);
+      v += dir * cardStep() * EASE;   // push roughly one card in that direction, then settle
+      arrows.forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+    }));
+
+    let last = 0;
+    const loop = (t) => {
+      requestAnimationFrame(loop);
+      const dt = Math.min(0.05, (t - (last || t)) / 1000);
+      last = t;
+      if (!visible || document.hidden || !half) return;
+      const target = hovered || paused ? 0 : dir * SPEED;
+      v += (target - v) * Math.min(1, dt * EASE);
+      if (Math.abs(v) < 0.01 && target === 0) return;
+      x += v * dt;
+      if (x <= -half) x += half; else if (x > 0) x -= half;   // wrap within one set either way
+      track.style.transform = `translate3d(${x.toFixed(2)}px, 0, 0)`;
+    };
+    requestAnimationFrame(loop);
 
     if (toggle) {
       const label = $('[data-wcar-label]', toggle);
       const icon = $('path', toggle);
       toggle.hidden = false;
       toggle.addEventListener('click', () => {
-        const paused = car.classList.toggle('is-paused');
+        paused = !paused;
+        car.classList.toggle('is-paused', paused);
         toggle.setAttribute('aria-pressed', String(paused));
         label.textContent = paused ? 'play' : 'pause';
         icon.setAttribute('d', paused ? 'M8 5v14l11-7z' : 'M9 5v14M15 5v14');
       });
     }
     if ('IntersectionObserver' in window) {
-      new IntersectionObserver(([e]) => car.classList.toggle('is-offscreen', !e.isIntersecting)).observe(car);
+      new IntersectionObserver(([e]) => { visible = e.isIntersecting; }).observe(car);
+      // Covers are lazy; once the section is near, load them all so cards sliding in from the side are never blank.
+      const pre = new IntersectionObserver(([e]) => {
+        if (!e.isIntersecting) return;
+        pre.disconnect();
+        $$('img[loading="lazy"]', track).forEach((img) => { img.loading = 'eager'; });
+      }, { rootMargin: '800px 0px' });
+      pre.observe(car);
     }
   })();
 

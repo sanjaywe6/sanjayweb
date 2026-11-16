@@ -141,11 +141,11 @@
         <ul>
           <li><a href="#about" data-nav>about</a></li>
           <li><a href="#arsenal" data-nav>arsenal</a></li>
-          <li><a href="#experience" data-nav>experience</a></li>
+          <li><a href="#research" data-nav>research</a></li>
           <li><a href="#projects" data-nav>projects</a></li>
           <li><a href="#writeups" data-nav>write-ups</a></li>
+          <li><a href="#experience" data-nav>experience</a></li>
           <li><a href="#certifications" data-nav>certs</a></li>
-          <li><a href="#research" data-nav>research</a></li>
           <li><a href="#contact" data-nav>contact</a></li>
         </ul>
         <span class="nav__indicator" aria-hidden="true"></span>
@@ -194,11 +194,11 @@
       <ol class="mmenu__list">
         <li><a href="#about"><span>01</span>About</a></li>
         <li><a href="#arsenal"><span>02</span>Arsenal</a></li>
-        <li><a href="#experience"><span>03</span>Experience</a></li>
+        <li><a href="#research"><span>03</span>Research</a></li>
         <li><a href="#projects"><span>04</span>Projects</a></li>
         <li><a href="#writeups"><span>05</span>Write-ups</a></li>
-        <li><a href="#certifications"><span>06</span>Certifications</a></li>
-        <li><a href="#research"><span>07</span>Research</a></li>
+        <li><a href="#experience"><span>06</span>Experience</a></li>
+        <li><a href="#certifications"><span>07</span>Certifications</a></li>
         <li><a href="#resume"><span>08</span>Resume</a></li>
         <li><a href="#contact"><span>09</span>Contact</a></li>
       </ol>
@@ -558,105 +558,56 @@
       </div>
     </section>
 
-    <!-- ============ EXPERIENCE ============ -->
-    <section class="section" id="experience" aria-labelledby="experience-title">
+    <!-- ============ RESEARCH ============ -->
+    <section class="section" id="research" aria-labelledby="research-title">
       <div class="container">
         <header class="sec-head reveal">
-          <p class="sec-head__meta mono"><span class="sec-head__idx">03</span><span class="sec-head__path">~/experience.log</span></p>
-          <h2 class="sec-head__title" id="experience-title">From building systems <em>to breaking them.</em></h2>
+          <p class="sec-head__meta mono"><span class="sec-head__idx">03</span><span class="sec-head__path">~/research --bug-bounty</span></p>
+          <h2 class="sec-head__title" id="research-title">Security research <em>&amp; responsible disclosure.</em></h2>
         </header>
 
-        <ol class="timeline" id="timeline">
-          <li class="timeline__progress" aria-hidden="true"><span></span></li>
+        <div class="research">
+          <div class="research__profile reveal" data-spotlight>
+            <dl class="research__stats">
+              <div><dt class="mono">real-world applications tested</dt><dd><span data-count="15">15</span><b>+</b></dd></div>
+              <div><dt class="mono">findings reported</dt><dd><span data-count="20">20</span><b>+</b></dd></div>
+            </dl>
+            <dl class="research__facts mono">
+              <div><dt>platform</dt><dd class="has-icon"><svg class="ti" aria-hidden="true" focusable="false"><use href="#si-hackerone"/></svg>HackerOne</dd></div>
+              <div><dt>role</dt><dd>Independent Web Security Researcher</dd></div>
+              <div><dt>active since</dt><dd>Jan 2025</dd></div>
+              <div><dt>scope</dt><dd>Web applications &amp; APIs, public and private programs</dd></div>
+            </dl>
+            <p class="research__note">
+              Testing is performed only under authorized vulnerability disclosure programs. Program names and sensitive
+              details are intentionally omitted here.
+            </p>
+          </div>
 
-          <li class="tl reveal">
-            <div class="tl__when mono"><span>Apr 2026</span><span>Present</span></div>
-            <div class="tl__node" aria-hidden="true"></div>
-            <article class="tl__body">
-              <header>
-                <h3 class="tl__role">VAPT and Red Teaming Consultant</h3>
-                <p class="tl__org">Nangia &amp; Co LLP <span class="tl__badge mono">current</span></p>
-              </header>
-              <ul class="tl__points">
-                <li>Perform web application and REST API security assessments for enterprise and public-sector environments, following OWASP WSTG, OWASP Top 10, OWASP API Security Top 10 and PTES-oriented testing practices.</li>
-                <li>Conduct manual and tool-assisted testing of authentication, authorization, session management, input validation, business logic and API access controls.</li>
-                <li>Validate findings with reproducible proof-of-concept steps and assess their technical and business impact.</li>
-                <li>Prepare technical and executive-facing VAPT reports with CVSS severity ratings and actionable remediation, and work with development teams to support fixes.</li>
-              </ul>
-              <ul class="tl__tags mono"><li>VAPT</li><li>Red Team</li><li>OWASP WSTG</li><li>PTES</li><li>CVSS</li></ul>
-            </article>
-          </li>
+          <div class="research__classes reveal">
+            <h3 class="research__h mono">// vulnerability classes reported</h3>
+            <ul class="vclass">
+              <li><span class="vclass__id mono">IDOR</span><span>Insecure direct object references</span></li>
+              <li><span class="vclass__id mono">XSS</span><span>Cross-site scripting</span></li>
+              <li><span class="vclass__id mono">AUTH</span><span>Authentication &amp; authorization flaws</span></li>
+              <li><span class="vclass__id mono">JWT</span><span>JWT-related weaknesses</span></li>
+              <li><span class="vclass__id mono">INFO</span><span>Information disclosure</span></li>
+              <li><span class="vclass__id mono">LOGIC</span><span>Business-logic vulnerabilities</span></li>
+            </ul>
+          </div>
+        </div>
 
-          <li class="tl reveal">
-            <div class="tl__when mono"><span>Jan 2025</span><span>Present</span></div>
-            <div class="tl__node" aria-hidden="true"></div>
-            <article class="tl__body">
-              <header>
-                <h3 class="tl__role">Independent Web Security Researcher · Bug Bounty Hunter</h3>
-                <p class="tl__org">HackerOne <span class="tl__badge mono">current</span></p>
-              </header>
-              <ul class="tl__points">
-                <li>Conduct authorized security testing under public and private vulnerability disclosure programs, focused on web applications and APIs.</li>
-                <li>Identify and responsibly report IDOR, XSS, authentication and authorization flaws, JWT-related weaknesses, information disclosure and business-logic vulnerabilities.</li>
-                <li>Perform reconnaissance, subdomain enumeration, technology fingerprinting, attack-surface mapping and manual validation.</li>
-              </ul>
-              <ul class="tl__tags mono"><li>Bug Bounty</li><li>Responsible Disclosure</li><li>Recon</li></ul>
-            </article>
-          </li>
-
-          <li class="tl reveal">
-            <div class="tl__when mono"><span>Dec 2023</span><span>Mar 2026</span></div>
-            <div class="tl__node" aria-hidden="true"></div>
-            <article class="tl__body">
-              <header>
-                <h3 class="tl__role">System and Security Engineer · Application Security Engineer</h3>
-                <p class="tl__org">IIT Tirupati Navavishkar I-Hub Foundation</p>
-              </header>
-              <ul class="tl__points">
-                <li>Supported application security architecture, secure development practices and internal VAPT across an ecosystem of 100+ internal web applications and REST APIs.</li>
-                <li>Reviewed Python (Django/FastAPI) and JavaScript components, identifying weaknesses in input handling, insecure object access, mass assignment and authentication or authorization controls.</li>
-                <li>Performed secure code reviews and threat modelling, and promoted secure coding practices: input validation, output encoding, parameterized queries, secure sessions and CSRF protection.</li>
-                <li>Designed and secured backend services with Django, FastAPI, Docker, Nginx and PostgreSQL, implementing authentication flows, RBAC and audit logging.</li>
-                <li>Built Python and Bash automation for reconnaissance, asset discovery, security monitoring and vulnerability validation; administered and hardened Linux infrastructure.</li>
-              </ul>
-              <ul class="tl__tags mono"><li>AppSec</li><li>Secure Code Review</li><li>Threat Modelling</li><li>Django</li><li>FastAPI</li><li>Linux</li></ul>
-            </article>
-          </li>
-
-          <li class="tl reveal">
-            <div class="tl__when mono"><span>Jan 2023</span><span>Nov 2023</span></div>
-            <div class="tl__node" aria-hidden="true"></div>
-            <article class="tl__body">
-              <header>
-                <h3 class="tl__role">Security Analyst</h3>
-                <p class="tl__org">V &amp; M Enterprises</p>
-              </header>
-              <ul class="tl__points">
-                <li>Performed web application vulnerability assessments and penetration tests aligned with OWASP Top 10 and OWASP WSTG.</li>
-                <li>Identified and manually validated SQL injection, XSS, IDOR/BOLA, CSRF, SSRF, authentication bypass and broken access-control vulnerabilities.</li>
-                <li>Used Burp Suite, OWASP ZAP, Nmap and Nuclei for reconnaissance, testing and validation; documented findings with PoC steps, CVSS severity and remediation guidance.</li>
-              </ul>
-              <ul class="tl__tags mono"><li>Web VAPT</li><li>Burp Suite</li><li>OWASP ZAP</li><li>Nuclei</li></ul>
-            </article>
-          </li>
-
-          <li class="tl reveal">
-            <div class="tl__when mono"><span>Jul 2021</span><span>Dec 2022</span></div>
-            <div class="tl__node" aria-hidden="true"></div>
-            <article class="tl__body">
-              <header>
-                <h3 class="tl__role">Full Stack Developer · System Administrator</h3>
-                <p class="tl__org">The Gurkul</p>
-              </header>
-              <ul class="tl__points">
-                <li>Developed and deployed web applications with Python, Django, Flask, JavaScript, REST APIs, MySQL and PostgreSQL.</li>
-                <li>Designed and maintained an online examination platform supporting 800+ concurrent users, with role-based access control, server-side validation, session management and anti-automation controls.</li>
-                <li>Administered Linux infrastructure including Nginx, SSL/TLS, DNS, deployment and monitoring; remediated XSS, SQL injection, CSRF and access-control weaknesses.</li>
-              </ul>
-              <ul class="tl__tags mono"><li>Django</li><li>Flask</li><li>PostgreSQL</li><li>Nginx</li><li>Linux</li></ul>
-            </article>
-          </li>
-        </ol>
+        <div class="method reveal">
+          <h3 class="research__h mono">// methodology</h3>
+          <ol class="method__steps">
+            <li><span class="mono">01</span><b>Reconnaissance</b></li>
+            <li><span class="mono">02</span><b>Subdomain enumeration</b></li>
+            <li><span class="mono">03</span><b>Technology fingerprinting</b></li>
+            <li><span class="mono">04</span><b>Attack-surface mapping</b></li>
+            <li><span class="mono">05</span><b>Manual validation</b></li>
+            <li><span class="mono">06</span><b>Report: PoC, impact &amp; remediation</b></li>
+          </ol>
+        </div>
       </div>
     </section>
 
@@ -787,84 +738,100 @@
           </div>
         </header>
 
-        <div class="reveal">
+        <div class="wcar-wrap reveal">
+          <button type="button" class="wcar__arrow wcar__arrow--prev" data-wcar-dir="1" aria-controls="wcar" aria-pressed="false" aria-label="Previous: flow cards to the right" hidden>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>
+          </button>
+          <button type="button" class="wcar__arrow wcar__arrow--next" data-wcar-dir="-1" aria-controls="wcar" aria-pressed="true" aria-label="Next: flow cards to the left" hidden>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+          </button>
           <!-- Auto-scrolling carousel. main.js clones the cards for a seamless loop; without JS it is a scrollable row. -->
           <div class="wcar" id="wcar" role="region" aria-label="Published write-ups" tabindex="0">
             <ul class="wcar__track">
               <li class="wcard">
                 <a href="https://www.linkedin.com/pulse/from-mobile-number-enumeration-full-account-takeover-exploiting-goiyc/" target="_blank" rel="noopener noreferrer">
+                  <span class="wcard__media"><img src="assets/img/articles/enum-account-takeover.jpg" width="880" height="494" alt="" loading="lazy" decoding="async"></span>
                   <span class="wcard__tag mono">enumeration · account takeover</span>
                   <span class="wcard__title">From Mobile Number Enumeration to Full Account Takeover</span>
-                  <span class="wcard__desc">How enumerating registered mobile numbers opened a path to taking over user accounts end to end.</span>
+                  <span class="wcard__desc">User enumeration combined with a weak password reset (no OTP rate limiting, no lockout) led to complete account compromise.</span>
                   <span class="wcard__cta mono">read on linkedin <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></span>
                 </a>
               </li>
               <li class="wcard">
                 <a href="https://www.linkedin.com/pulse/hunting-hidden-legacy-endpoints-discovering-sql-injection-gupta-s7ehc/" target="_blank" rel="noopener noreferrer">
+                  <span class="wcard__media"><img src="assets/img/articles/legacy-endpoint-sqli.jpg" width="880" height="494" alt="" loading="lazy" decoding="async"></span>
                   <span class="wcard__tag mono">recon · sql injection</span>
                   <span class="wcard__title">Hunting Hidden Legacy Endpoints: Discovering SQL Injection</span>
-                  <span class="wcard__desc">Digging up forgotten legacy endpoints that were still live, and the SQL injection behind one of them.</span>
+                  <span class="wcard__desc">Internet Archive recon surfaced a legacy ASP.NET page that was still live, with user input reaching an unsafe database query.</span>
                   <span class="wcard__cta mono">read on linkedin <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></span>
                 </a>
               </li>
               <li class="wcard">
                 <a href="https://www.linkedin.com/pulse/from-exposed-soap-endpoint-confirmed-time-based-sql-injection-gupta-std0f/" target="_blank" rel="noopener noreferrer">
-                  <span class="wcard__tag mono">soap · blind sqli</span>
+                  <span class="wcard__media"><img src="assets/img/articles/soap-sqli.jpg" width="880" height="494" alt="" loading="lazy" decoding="async"></span>
+                  <span class="wcard__tag mono">soap · time-based sqli</span>
                   <span class="wcard__title">From an Exposed SOAP Endpoint to Confirmed Time-Based SQL Injection</span>
-                  <span class="wcard__desc">Finding an exposed SOAP web service and confirming a time-based blind SQL injection behind it.</span>
+                  <span class="wcard__desc">An unauthenticated ASP.NET (.asmx) web service where a crafted payload confirmed time-based SQL injection on Microsoft SQL Server.</span>
                   <span class="wcard__cta mono">read on linkedin <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></span>
                 </a>
               </li>
               <li class="wcard">
                 <a href="https://www.linkedin.com/pulse/from-github-recon-high-severity-pii-disclosure-sanjay-gupta-8a2cc/" target="_blank" rel="noopener noreferrer">
+                  <span class="wcard__media"><img src="assets/img/articles/github-pii.jpg" width="880" height="494" alt="" loading="lazy" decoding="async"></span>
                   <span class="wcard__tag mono">osint · pii disclosure</span>
                   <span class="wcard__title">From GitHub Recon to High-Severity PII Disclosure</span>
-                  <span class="wcard__desc">How reconnaissance on public GitHub led to a high-severity exposure of personal data.</span>
+                  <span class="wcard__desc">A code comment and the commit history of a public repository led to an exposed drive of personal and banking data.</span>
                   <span class="wcard__cta mono">read on linkedin <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></span>
                 </a>
               </li>
               <li class="wcard">
                 <a href="https://www.linkedin.com/pulse/from-simple-form-submission-confirmed-mssql-injection-sanjay-gupta-pjebc/" target="_blank" rel="noopener noreferrer">
-                  <span class="wcard__tag mono">mssql · sql injection</span>
+                  <span class="wcard__media"><img src="assets/img/articles/mssql-injection.jpg" width="880" height="494" alt="" loading="lazy" decoding="async"></span>
+                  <span class="wcard__tag mono">mssql · blind sqli</span>
                   <span class="wcard__title">From a Simple Form Submission to Confirmed MSSQL Injection</span>
-                  <span class="wcard__desc">An ordinary form submission that turned out to be a confirmed SQL injection against Microsoft SQL Server.</span>
+                  <span class="wcard__desc">An intercepted form parameter proved vulnerable to blind SQL injection, confirmed by a time delay and out-of-band interaction.</span>
                   <span class="wcard__cta mono">read on linkedin <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></span>
                 </a>
               </li>
               <li class="wcard">
                 <a href="https://www.linkedin.com/pulse/i-created-10-accounts-using-same-mobile-number-production-gupta-8kgbc/" target="_blank" rel="noopener noreferrer">
-                  <span class="wcard__tag mono">business logic</span>
+                  <span class="wcard__media"><img src="assets/img/articles/race-condition-accounts.jpg" width="880" height="495" alt="" loading="lazy" decoding="async"></span>
+                  <span class="wcard__tag mono">race condition · business logic</span>
                   <span class="wcard__title">I Created 10 Accounts Using the Same Mobile Number in Production</span>
-                  <span class="wcard__desc">A signup logic flaw that let a single mobile number register multiple accounts on a live system.</span>
+                  <span class="wcard__desc">Concurrent requests exposed a race condition that let a single mobile number register multiple accounts on a live system.</span>
                   <span class="wcard__cta mono">read on linkedin <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></span>
                 </a>
               </li>
               <li class="wcard">
                 <a href="https://www.linkedin.com/pulse/from-recon-account-takeover-discovering-hidden-password-sanjay-gupta-eyfcc/" target="_blank" rel="noopener noreferrer">
-                  <span class="wcard__tag mono">recon · account takeover</span>
-                  <span class="wcard__title">From Recon to Account Takeover: Discovering a Hidden Password Flow</span>
-                  <span class="wcard__desc">Reconnaissance that surfaced a hidden password feature and escalated it into account takeover.</span>
+                  <span class="wcard__media"><img src="assets/img/articles/hidden-password-change.jpg" width="880" height="494" alt="" loading="lazy" decoding="async"></span>
+                  <span class="wcard__tag mono">auth bypass · django</span>
+                  <span class="wcard__title">From Recon to Account Takeover: Discovering a Hidden Password Change Flaw</span>
+                  <span class="wcard__desc">A hidden CMS endpoint exposed a password-change form that the Django backend accepted without a valid session.</span>
                   <span class="wcard__cta mono">read on linkedin <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></span>
                 </a>
               </li>
               <li class="wcard">
                 <a href="https://www.linkedin.com/pulse/how-hidden-login-option-led-debug-exposure-sql-injection-sanjay-gupta-l7yuc/" target="_blank" rel="noopener noreferrer">
-                  <span class="wcard__tag mono">debug exposure · sqli</span>
+                  <span class="wcard__media"><img src="assets/img/articles/debug-sqli-idor.jpg" width="880" height="495" alt="" loading="lazy" decoding="async"></span>
+                  <span class="wcard__tag mono">debug · sqli · idor</span>
                   <span class="wcard__title">How a Hidden Login Option Led to Debug Exposure and SQL Injection</span>
-                  <span class="wcard__desc">A login option that was never meant to be visible, the debug information it exposed and the SQL injection that followed.</span>
+                  <span class="wcard__desc">A hidden application dropdown on a Laravel login page led to debug stack traces, SQL injection and IDOR.</span>
                   <span class="wcard__cta mono">read on linkedin <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></span>
                 </a>
               </li>
               <li class="wcard">
                 <a href="https://www.linkedin.com/pulse/how-historical-web-archives-exposed-hidden-django-admin-sanjay-gupta-5tyxc/" target="_blank" rel="noopener noreferrer">
+                  <span class="wcard__media"><img src="assets/img/articles/wayback-django-admin.jpg" width="880" height="495" alt="" loading="lazy" decoding="async"></span>
                   <span class="wcard__tag mono">web archives · django</span>
                   <span class="wcard__title">How Historical Web Archives Exposed a Hidden Django Admin</span>
-                  <span class="wcard__desc">Using archived snapshots of a site to uncover a Django admin panel that was supposed to stay hidden.</span>
+                  <span class="wcard__desc">Wayback Machine snapshots and a Django debug page revealed the site's URL patterns, including an admin panel meant to stay hidden.</span>
                   <span class="wcard__cta mono">read on linkedin <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></span>
                 </a>
               </li>
               <li class="wcard">
                 <a href="https://www.linkedin.com/in/sanjay-g101/recent-activity/all/" target="_blank" rel="noopener noreferrer">
+                  <span class="wcard__media wcard__media--text mono" aria-hidden="true"><span>&lt;script&gt;xss&lt;/script&gt;</span></span>
                   <span class="wcard__tag mono">client-side · xss</span>
                   <span class="wcard__title">DOM-Based XSS in AI Chat-Bot</span>
                   <span class="wcard__desc">A DOM-based cross-site scripting flaw in an AI chat-bot interface.</span>
@@ -873,6 +840,7 @@
               </li>
               <li class="wcard">
                 <a href="https://www.linkedin.com/in/sanjay-g101/recent-activity/all/" target="_blank" rel="noopener noreferrer">
+                  <span class="wcard__media wcard__media--text mono" aria-hidden="true"><span>captcha: null</span></span>
                   <span class="wcard__tag mono">anti-automation</span>
                   <span class="wcard__title">Missing CAPTCHA Configuration in Signup Flow</span>
                   <span class="wcard__desc">A signup flow with no CAPTCHA protection, leaving it open to automated abuse.</span>
@@ -881,6 +849,7 @@
               </li>
               <li class="wcard">
                 <a href="https://www.linkedin.com/in/sanjay-g101/recent-activity/all/" target="_blank" rel="noopener noreferrer">
+                  <span class="wcard__media wcard__media--text mono" aria-hidden="true"><span>POST /logout → token still valid</span></span>
                   <span class="wcard__tag mono">session management</span>
                   <span class="wcard__title">Logout Without Revocation: A Session Token Analysis</span>
                   <span class="wcard__desc">Why logging out did not revoke the session token, and what that means for session security.</span>
@@ -897,11 +866,113 @@
       </div>
     </section>
 
+    <!-- ============ EXPERIENCE ============ -->
+    <section class="section" id="experience" aria-labelledby="experience-title">
+      <div class="container">
+        <header class="sec-head reveal">
+          <p class="sec-head__meta mono"><span class="sec-head__idx">06</span><span class="sec-head__path">~/experience.log</span></p>
+          <h2 class="sec-head__title" id="experience-title">From building systems <em>to breaking them.</em></h2>
+        </header>
+
+        <ol class="timeline" id="timeline">
+          <li class="timeline__progress" aria-hidden="true"><span></span></li>
+
+          <li class="tl reveal">
+            <div class="tl__when mono"><span>Apr 2026</span><span>Present</span></div>
+            <div class="tl__node" aria-hidden="true"></div>
+            <article class="tl__body">
+              <header>
+                <h3 class="tl__role">VAPT and Red Teaming Consultant</h3>
+                <p class="tl__org">Nangia &amp; Co LLP <span class="tl__badge mono">current</span></p>
+              </header>
+              <ul class="tl__points">
+                <li>Perform web application and REST API security assessments for enterprise and public-sector environments, following OWASP WSTG, OWASP Top 10, OWASP API Security Top 10 and PTES-oriented testing practices.</li>
+                <li>Conduct manual and tool-assisted testing of authentication, authorization, session management, input validation, business logic and API access controls.</li>
+                <li>Validate findings with reproducible proof-of-concept steps and assess their technical and business impact.</li>
+                <li>Prepare technical and executive-facing VAPT reports with CVSS severity ratings and actionable remediation, and work with development teams to support fixes.</li>
+              </ul>
+              <ul class="tl__tags mono"><li>VAPT</li><li>Red Team</li><li>OWASP WSTG</li><li>PTES</li><li>CVSS</li></ul>
+            </article>
+          </li>
+
+          <li class="tl reveal">
+            <div class="tl__when mono"><span>Jan 2025</span><span>Present</span></div>
+            <div class="tl__node" aria-hidden="true"></div>
+            <article class="tl__body">
+              <header>
+                <h3 class="tl__role">Independent Web Security Researcher · Bug Bounty Hunter</h3>
+                <p class="tl__org">HackerOne <span class="tl__badge mono">current</span></p>
+              </header>
+              <ul class="tl__points">
+                <li>Conduct authorized security testing under public and private vulnerability disclosure programs, focused on web applications and APIs.</li>
+                <li>Identify and responsibly report IDOR, XSS, authentication and authorization flaws, JWT-related weaknesses, information disclosure and business-logic vulnerabilities.</li>
+                <li>Perform reconnaissance, subdomain enumeration, technology fingerprinting, attack-surface mapping and manual validation.</li>
+              </ul>
+              <ul class="tl__tags mono"><li>Bug Bounty</li><li>Responsible Disclosure</li><li>Recon</li></ul>
+            </article>
+          </li>
+
+          <li class="tl reveal">
+            <div class="tl__when mono"><span>Dec 2023</span><span>Mar 2026</span></div>
+            <div class="tl__node" aria-hidden="true"></div>
+            <article class="tl__body">
+              <header>
+                <h3 class="tl__role">System and Security Engineer · Application Security Engineer</h3>
+                <p class="tl__org">IIT Tirupati Navavishkar I-Hub Foundation</p>
+              </header>
+              <ul class="tl__points">
+                <li>Supported application security architecture, secure development practices and internal VAPT across an ecosystem of 100+ internal web applications and REST APIs.</li>
+                <li>Reviewed Python (Django/FastAPI) and JavaScript components, identifying weaknesses in input handling, insecure object access, mass assignment and authentication or authorization controls.</li>
+                <li>Performed secure code reviews and threat modelling, and promoted secure coding practices: input validation, output encoding, parameterized queries, secure sessions and CSRF protection.</li>
+                <li>Designed and secured backend services with Django, FastAPI, Docker, Nginx and PostgreSQL, implementing authentication flows, RBAC and audit logging.</li>
+                <li>Built Python and Bash automation for reconnaissance, asset discovery, security monitoring and vulnerability validation; administered and hardened Linux infrastructure.</li>
+              </ul>
+              <ul class="tl__tags mono"><li>AppSec</li><li>Secure Code Review</li><li>Threat Modelling</li><li>Django</li><li>FastAPI</li><li>Linux</li></ul>
+            </article>
+          </li>
+
+          <li class="tl reveal">
+            <div class="tl__when mono"><span>Jan 2023</span><span>Nov 2023</span></div>
+            <div class="tl__node" aria-hidden="true"></div>
+            <article class="tl__body">
+              <header>
+                <h3 class="tl__role">Security Analyst</h3>
+                <p class="tl__org">V &amp; M Enterprises</p>
+              </header>
+              <ul class="tl__points">
+                <li>Performed web application vulnerability assessments and penetration tests aligned with OWASP Top 10 and OWASP WSTG.</li>
+                <li>Identified and manually validated SQL injection, XSS, IDOR/BOLA, CSRF, SSRF, authentication bypass and broken access-control vulnerabilities.</li>
+                <li>Used Burp Suite, OWASP ZAP, Nmap and Nuclei for reconnaissance, testing and validation; documented findings with PoC steps, CVSS severity and remediation guidance.</li>
+              </ul>
+              <ul class="tl__tags mono"><li>Web VAPT</li><li>Burp Suite</li><li>OWASP ZAP</li><li>Nuclei</li></ul>
+            </article>
+          </li>
+
+          <li class="tl reveal">
+            <div class="tl__when mono"><span>Jul 2021</span><span>Dec 2022</span></div>
+            <div class="tl__node" aria-hidden="true"></div>
+            <article class="tl__body">
+              <header>
+                <h3 class="tl__role">Full Stack Developer · System Administrator</h3>
+                <p class="tl__org">The Gurkul</p>
+              </header>
+              <ul class="tl__points">
+                <li>Developed and deployed web applications with Python, Django, Flask, JavaScript, REST APIs, MySQL and PostgreSQL.</li>
+                <li>Designed and maintained an online examination platform supporting 800+ concurrent users, with role-based access control, server-side validation, session management and anti-automation controls.</li>
+                <li>Administered Linux infrastructure including Nginx, SSL/TLS, DNS, deployment and monitoring; remediated XSS, SQL injection, CSRF and access-control weaknesses.</li>
+              </ul>
+              <ul class="tl__tags mono"><li>Django</li><li>Flask</li><li>PostgreSQL</li><li>Nginx</li><li>Linux</li></ul>
+            </article>
+          </li>
+        </ol>
+      </div>
+    </section>
+
     <!-- ============ CERTIFICATIONS ============ -->
     <section class="section" id="certifications" aria-labelledby="certs-title">
       <div class="container">
         <header class="sec-head reveal">
-          <p class="sec-head__meta mono"><span class="sec-head__idx">06</span><span class="sec-head__path">~/certs</span></p>
+          <p class="sec-head__meta mono"><span class="sec-head__idx">07</span><span class="sec-head__path">~/certs</span></p>
           <h2 class="sec-head__title" id="certs-title">Certifications <em>&amp; achievements.</em></h2>
         </header>
 
@@ -1009,59 +1080,6 @@
         </div>
 
         <p class="certs__also mono reveal"><span>also</span> <svg class="ti" aria-hidden="true" focusable="false"><use href="#si-portswigger"/></svg>Burp Suite Web Security Academy (PortSwigger)</p>
-      </div>
-    </section>
-
-    <!-- ============ RESEARCH ============ -->
-    <section class="section" id="research" aria-labelledby="research-title">
-      <div class="container">
-        <header class="sec-head reveal">
-          <p class="sec-head__meta mono"><span class="sec-head__idx">07</span><span class="sec-head__path">~/research --bug-bounty</span></p>
-          <h2 class="sec-head__title" id="research-title">Security research <em>&amp; responsible disclosure.</em></h2>
-        </header>
-
-        <div class="research">
-          <div class="research__profile reveal" data-spotlight>
-            <dl class="research__stats">
-              <div><dt class="mono">real-world applications tested</dt><dd><span data-count="15">15</span><b>+</b></dd></div>
-              <div><dt class="mono">findings reported</dt><dd><span data-count="20">20</span><b>+</b></dd></div>
-            </dl>
-            <dl class="research__facts mono">
-              <div><dt>platform</dt><dd class="has-icon"><svg class="ti" aria-hidden="true" focusable="false"><use href="#si-hackerone"/></svg>HackerOne</dd></div>
-              <div><dt>role</dt><dd>Independent Web Security Researcher</dd></div>
-              <div><dt>active since</dt><dd>Jan 2025</dd></div>
-              <div><dt>scope</dt><dd>Web applications &amp; APIs, public and private programs</dd></div>
-            </dl>
-            <p class="research__note">
-              Testing is performed only under authorized vulnerability disclosure programs. Program names and sensitive
-              details are intentionally omitted here.
-            </p>
-          </div>
-
-          <div class="research__classes reveal">
-            <h3 class="research__h mono">// vulnerability classes reported</h3>
-            <ul class="vclass">
-              <li><span class="vclass__id mono">IDOR</span><span>Insecure direct object references</span></li>
-              <li><span class="vclass__id mono">XSS</span><span>Cross-site scripting</span></li>
-              <li><span class="vclass__id mono">AUTH</span><span>Authentication &amp; authorization flaws</span></li>
-              <li><span class="vclass__id mono">JWT</span><span>JWT-related weaknesses</span></li>
-              <li><span class="vclass__id mono">INFO</span><span>Information disclosure</span></li>
-              <li><span class="vclass__id mono">LOGIC</span><span>Business-logic vulnerabilities</span></li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="method reveal">
-          <h3 class="research__h mono">// methodology</h3>
-          <ol class="method__steps">
-            <li><span class="mono">01</span><b>Reconnaissance</b></li>
-            <li><span class="mono">02</span><b>Subdomain enumeration</b></li>
-            <li><span class="mono">03</span><b>Technology fingerprinting</b></li>
-            <li><span class="mono">04</span><b>Attack-surface mapping</b></li>
-            <li><span class="mono">05</span><b>Manual validation</b></li>
-            <li><span class="mono">06</span><b>Report: PoC, impact &amp; remediation</b></li>
-          </ol>
-        </div>
       </div>
     </section>
 
