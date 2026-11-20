@@ -1325,6 +1325,9 @@
     document.addEventListener('pointerleave', () => glow && glow.classList.remove('is-on'));
   }
 
+  // Shared state of the idle black hole (see "Singularity" below) so the byte field can feel it too.
+  const singularity = { s: 0, x: 0, y: 0, reach: 0 };
+
   /* ---------------------------------------------------------------- Byte field (background) */
   // Columns of hex/binary bytes stream slowly down the page at low opacity. Bytes near the
   // cursor are gently attracted toward it (and brighten), then ease back when it moves away.
@@ -1435,6 +1438,20 @@
               tx = ddx * pull; ty = ddy * pull; th = f;
             }
           }
+          if (singularity.s > 0 && it.ch) {          // black hole: spiral the byte in
+            const rx = col.x - singularity.x;
+            const ry = it.y - singularity.y;
+            const d = Math.hypot(rx, ry);
+            if (d < singularity.reach) {
+              const f = 1 - d / singularity.reach;
+              const pull = Math.min(0.97, f * f * 1.6 * singularity.s);
+              const phi = pull * 1.4;
+              const c = Math.cos(phi); const sn = Math.sin(phi);
+              tx = (rx * c - ry * sn) * (1 - pull) - rx;
+              ty = (rx * sn + ry * c) * (1 - pull) - ry;
+              th = Math.max(th, f);
+            }
+          }
           it.ox += (tx - it.ox) * k;
           it.oy += (ty - it.oy) * k;
           it.hi += (th - it.hi) * k;
@@ -1473,6 +1490,282 @@
       draw();
     };
     requestAnimationFrame(loop);
+  })();
+
+  /* ---------------------------------------------------------------- Singularity (idle black hole) */
+  // If the mouse rests in one spot for IDLE_MS, a black hole opens around the cursor. It grows
+  // over time, and the page's content spirals toward it, stretching around the event horizon.
+  // Any movement, scroll, click or key press collapses it and everything springs back.
+  (() => {
+    if (!finePointer || reduceMotion) return;
+
+    const IDLE_MS = 30000;      // how long the mouse must rest before the hole opens
+    const JITTER = 6;           // px of movement still counted as "resting"
+    const MAX_ATOMS = 700;      // cap on page elements pulled in
+    const COLLAPSE_MS = 500;
+    const SNAP_MS = 900;        // how long content takes to spring back
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'singularity';
+    canvas.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
+    const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+    const rand = (a, b) => a + Math.random() * (b - a);
+
+    let state = 'idle';         // idle | active | collapsing
+    let ax = 0; let ay = 0;     // where the mouse is resting
+    let hasPointer = false;
+    let idleTimer = 0;
+    let raf = 0;
+    let t0 = 0;
+    let W = 0; let H = 0;
+    let atoms = [];
+    let disk = [];
+    let collapseFrom = null;
+    let snapTimer = 0;
+
+    /* ---- which page elements get pulled in */
+    const SKIP = new Set(['script', 'style', 'noscript', 'template', 'dialog', 'link', 'meta', 'br', 'head']);
+    const ATOM_TAGS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'blockquote', 'figcaption', 'dt', 'dd',
+      'td', 'th', 'pre', 'label', 'button', 'a', 'img', 'svg', 'canvas', 'video', 'picture', 'input', 'textarea',
+      'select', 'hr', 'figure', 'time']);
+    const REPLACED = new Set(['img', 'svg', 'canvas', 'video', 'input', 'textarea', 'select', 'button']);
+    const hasOwnText = (el) => Array.prototype.some.call(el.childNodes, (n) => n.nodeType === 3 && n.nodeValue.trim());
+
+    function collectAtoms() {
+      const maxArea = W * H * 0.22;
+      const out = [];
+      const visit = (el) => {
+        if (out.length >= MAX_ATOMS) return;
+        const tag = el.localName;
+        if (SKIP.has(tag) || el === canvas || el.matches('.ambient, .boot, #toast')) return;
+        const cs = getComputedStyle(el);
+        if (cs.display === 'none') return;
+        if (cs.display === 'contents') { Array.from(el.children).forEach(visit); return; }
+        const r = el.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > H || r.right < 0 || r.left > W || (r.width === 0 && r.height === 0)) return;
+        const small = r.width * r.height <= maxArea && r.height <= H * 0.5;
+        const transformable = cs.display !== 'inline' || REPLACED.has(tag);
+        if (small && transformable && (ATOM_TAGS.has(tag) || hasOwnText(el) || el.children.length === 0)) {
+          out.push({
+            el,
+            cx: r.left + r.width / 2,
+            cy: r.top + r.height / 2,
+            base: cs.transform === 'none' ? '' : ` ${cs.transform}`,
+            baseOp: parseFloat(cs.opacity) || 1,
+            tf: el.style.transform, op: el.style.opacity, tr: el.style.transition,
+          });
+          return;
+        }
+        if (REPLACED.has(tag) || tag === 'svg') return;
+        Array.from(el.children).forEach(visit);
+      };
+      visit(document.body);
+      return out;
+    }
+
+    function pullAtoms(hx, hy, R, s) {
+      const reach = R * 6 + 90;
+      for (const a of atoms) {
+        const rx = a.cx - hx; const ry = a.cy - hy;
+        const d = Math.hypot(rx, ry);
+        const u = clamp01(1 - d / reach);
+        if (u <= 0) { if (a.moved) { a.el.style.transform = a.tf; a.el.style.opacity = a.op; a.moved = false; } continue; }
+        const pull = s * u * u * (3 - 2 * u);                  // smoothstep falloff
+        const p = pull * 0.94;                                 // fraction of the distance closed
+        const phi = pull * 1.15;                               // swirl around the hole
+        const c = Math.cos(phi); const sn = Math.sin(phi);
+        const nx = (rx * c - ry * sn) * (1 - p);
+        const ny = (rx * sn + ry * c) * (1 - p);
+        const theta = Math.atan2(ny, nx);
+        const sc = Math.max(0.03, 1 - p * 0.9);                // shrink as it falls in
+        const sr = (1 - pull * 0.55) * sc;                     // squashed along the radius...
+        const st = (1 + pull * 0.6) * sc;                      // ...and stretched along the horizon
+        const nd = Math.hypot(nx, ny);
+        const fade = clamp01((nd - R * 0.7) / (R * 0.8));      // vanish past the event horizon
+        a.el.style.transform = `translate(${(nx - rx).toFixed(1)}px, ${(ny - ry).toFixed(1)}px) rotate(${theta.toFixed(4)}rad) scale(${sr.toFixed(4)}, ${st.toFixed(4)}) rotate(${(-theta).toFixed(4)}rad) rotate(${phi.toFixed(4)}rad)${a.base}`;
+        a.el.style.opacity = (a.baseOp * fade).toFixed(3);
+        a.moved = true;
+      }
+      return reach;
+    }
+
+    function releaseAtoms() {
+      const list = atoms;
+      atoms = [];
+      list.forEach((a) => {
+        a.el.style.transition = `transform ${SNAP_MS}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${SNAP_MS * 0.6}ms ease`;
+        a.el.style.transform = a.tf;
+        a.el.style.opacity = a.op;
+      });
+      clearTimeout(snapTimer);
+      snapTimer = setTimeout(() => list.forEach((a) => { a.el.style.transition = a.tr; }), SNAP_MS + 60);
+    }
+
+    /* ---- the black hole itself */
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    const spawn = (k) => ({ k, ang: rand(0, Math.PI * 2), size: rand(0.6, 1.8), hot: Math.random() });
+    function buildDisk() {
+      disk = [];
+      for (let i = 0; i < 340; i++) disk.push(spawn(rand(1.25, 3.9)));
+    }
+
+    const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a.toFixed(3)})`;
+    const mix = (c, w, t) => c.map((v, i) => Math.round(v + (w[i] - v) * t));
+    const WHITE = [255, 255, 255];
+    const TILT = -0.2;          // disk tilt (radians)
+    const FLAT = 0.24;          // how edge-on the disk is seen
+
+    function drawDisk(hx, hy, R, alpha, front) {
+      const { a: A, b: B } = accent();
+      const ct = Math.cos(TILT); const st = Math.sin(TILT);
+      const sz = Math.max(0.7, R / 70);
+      for (const p of disk) {
+        const s = Math.sin(p.ang);
+        if ((s > 0) !== front) continue;
+        const x0 = Math.cos(p.ang) * p.k * R;
+        const y0 = s * p.k * R * FLAT;
+        const x = hx + x0 * ct - y0 * st;
+        const y = hy + x0 * st + y0 * ct;
+        const inner = clamp01((3.9 - p.k) / 2.6);                     // 1 near the horizon
+        const doppler = 0.55 + 0.45 * Math.cos(p.ang);                 // approaching side is brighter
+        const col = mix(p.hot > 0.5 ? A : B, WHITE, inner * 0.7);
+        ctx.fillStyle = rgba(col, alpha * (0.25 + 0.75 * inner) * doppler);
+        const r = p.size * sz * (0.6 + inner * 0.8);
+        ctx.fillRect(x - r, y - r * 0.6, r * 2, r * 1.2);
+      }
+    }
+
+    function render(hx, hy, R, alpha) {
+      ctx.clearRect(0, 0, W, H);
+      if (R < 0.5 || alpha <= 0.002) return;
+      const { a: A } = accent();
+
+      // light around the hole dims, as if swallowed
+      let g = ctx.createRadialGradient(hx, hy, R, hx, hy, R * 7);
+      g.addColorStop(0, `rgba(0,0,0,${(0.6 * alpha).toFixed(3)})`);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.globalCompositeOperation = 'lighter';
+      drawDisk(hx, hy, R, alpha, false);                                // far side of the disk
+
+      // lensed halo: light from behind bent into a ring around the horizon
+      g = ctx.createRadialGradient(hx, hy, R, hx, hy, R * 2);
+      g.addColorStop(0, rgba(mix(A, WHITE, 0.8), 0.9 * alpha));
+      g.addColorStop(0.08, rgba(mix(A, WHITE, 0.35), 0.55 * alpha));
+      g.addColorStop(0.35, rgba(A, 0.16 * alpha));
+      g.addColorStop(1, rgba(A, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(hx, hy, R * 2, 0, Math.PI * 2); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+
+      // event horizon
+      ctx.fillStyle = `rgba(0,0,0,${Math.min(1, alpha * 1.2).toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(hx, hy, R, 0, Math.PI * 2); ctx.fill();
+
+      // photon ring + near side of the disk crossing in front of the horizon
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = rgba(mix(A, WHITE, 0.6), 0.6 * alpha);
+      ctx.lineWidth = Math.max(1, R / 60);
+      ctx.beginPath(); ctx.arc(hx, hy, R * 1.03, 0, Math.PI * 2); ctx.stroke();
+      drawDisk(hx, hy, R, alpha, true);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    const radiusAt = (e) => 4 + (Math.min(W, H) * 0.2 - 4) * (1 - Math.exp(-e / 14000));
+    const strengthAt = (e) => 1 - Math.exp(-e / 10000);
+
+    let last = 0;
+    function frame(t) {
+      raf = requestAnimationFrame(frame);
+      const dt = Math.min(0.05, (t - (last || t)) / 1000);
+      last = t;
+      for (const p of disk) {                                          // orbit + slow inspiral
+        p.ang += dt * 1.8 / Math.pow(p.k, 1.5);
+        p.k -= dt * 0.05 / p.k;
+        if (p.k < 1.08) Object.assign(p, spawn(rand(3.2, 3.9)));
+      }
+
+      if (state === 'active') {
+        const e = t - t0;
+        const R = radiusAt(e);
+        const s = strengthAt(e);
+        const alpha = clamp01(e / 1500);
+        const reach = pullAtoms(ax, ay, R, s);
+        Object.assign(singularity, { s, x: ax, y: ay, reach });
+        collapseFrom = { R, alpha, t };
+        render(ax, ay, R, alpha);
+      } else if (state === 'collapsing') {
+        const k = clamp01((t - collapseFrom.t) / COLLAPSE_MS);
+        const q = 1 - (1 - k) * (1 - k);                                // ease out
+        render(ax, ay, collapseFrom.R * (1 - q), collapseFrom.alpha * (1 - q));
+        if (k >= 1) stop();
+      }
+    }
+
+    function start() {
+      if (!hasPointer || document.hidden || state !== 'idle' || !root.classList.contains('is-ready')
+        || document.querySelector('dialog[open]')) { arm(); return; }
+      resize();
+      clearTimeout(snapTimer);
+      atoms = collectAtoms();
+      atoms.forEach((a) => { a.el.style.transition = 'none'; });
+      buildDisk();
+      state = 'active';
+      t0 = performance.now();
+      last = 0;
+      canvas.classList.add('is-on');
+      if (!raf) raf = requestAnimationFrame(frame);
+      toast('⚠ gravitational anomaly detected · move to escape');
+    }
+
+    function release() {
+      if (state !== 'active') return;
+      state = 'collapsing';
+      collapseFrom.t = performance.now();
+      singularity.s = 0;
+      releaseAtoms();
+    }
+
+    function stop() {
+      cancelAnimationFrame(raf);
+      raf = 0;
+      state = 'idle';
+      ctx.clearRect(0, 0, W, H);
+      canvas.classList.remove('is-on');
+    }
+
+    function arm() {
+      clearTimeout(idleTimer);
+      if (hasPointer) idleTimer = setTimeout(start, IDLE_MS);
+    }
+    const wake = () => { release(); arm(); };
+
+    window.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'touch') return;
+      const x = e.clientX; const y = e.clientY;
+      if (!hasPointer || Math.hypot(x - ax, y - ay) > JITTER) {
+        hasPointer = true; ax = x; ay = y;
+        wake();
+      }
+    }, { passive: true });
+    ['wheel', 'scroll', 'keydown', 'pointerdown', 'touchstart', 'resize'].forEach((ev) =>
+      window.addEventListener(ev, wake, { passive: true }));
+    const leave = () => { hasPointer = false; release(); clearTimeout(idleTimer); };
+    document.addEventListener('pointerleave', leave);
+    document.documentElement.addEventListener('mouseleave', leave);
+    window.addEventListener('blur', leave);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) leave(); });
   })();
 
   /* ---------------------------------------------------------------- Timeline progress */

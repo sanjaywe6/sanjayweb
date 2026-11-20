@@ -71,6 +71,10 @@
   --on-accent: #1a0006;
 }
 
+/* Idle black hole overlay (drawn by main.js) — above the nav, below the boot screen and toasts */
+.singularity { position: fixed; inset: 0; z-index: 140; pointer-events: none; display: none; }
+.singularity.is-on { display: block; }
+
 /* Smooth colour cross-fade while switching themes */
 .theme-switching *, .theme-switching *::before, .theme-switching *::after {
   transition: color 0.45s ease, background-color 0.45s ease, border-color 0.45s ease, box-shadow 0.45s ease, fill 0.45s ease !important;
