@@ -37,15 +37,17 @@
   const accent = () => ACCENT;
   const currentTheme = () => (THEMES[root.dataset.theme] ? root.dataset.theme : DEFAULT_THEME);
 
-  function setTheme(id, { save = true, animate = true } = {}) {
-    if (!THEMES[id]) return false;
-    if (animate && !reduceMotion) {
-      root.classList.add('theme-switching');
-      clearTimeout(setTheme.t);
-      setTheme.t = setTimeout(() => root.classList.remove('theme-switching'), 520);
-    }
-    root.dataset.theme = id;
-    if (save) { try { localStorage.setItem('sg-theme', id); } catch { /* ignore */ } }
+  // The page loads with a random theme (picked in index.html). After AUTO_THEME_MS on the page it
+  // slowly cross-fades to a different one, and keeps rotating — until the visitor picks a theme.
+  const AUTO_THEME_MS = 60000;
+  const THEME_FADE_MS = 4000;
+  const THEME_VARS = ['--accent-rgb', '--accent-strong-rgb', '--accent-2-rgb'];
+  let autoTheme = true;
+  let autoTimer = 0;
+  let rotatePending = false;
+  let fadeRAF = 0;
+
+  function syncThemeUI(id) {
     ACCENT = { a: readRGB('--accent-rgb'), b: readRGB('--accent-2-rgb') };
     const btn = $('#theme-btn');
     const name = $('#theme-name');
@@ -53,9 +55,75 @@
     if (btn) btn.setAttribute('aria-label', `Colour theme: ${THEMES[id].name}. Change theme`);
     $$('[data-theme-opt]').forEach((o) => o.setAttribute('aria-checked', String(o.dataset.themeOpt === id)));
     window.dispatchEvent(new CustomEvent('themechange', { detail: { id } }));
+  }
+
+  function cancelFade() {
+    if (!fadeRAF) return;
+    cancelAnimationFrame(fadeRAF);
+    fadeRAF = 0;
+    THEME_VARS.forEach((v) => root.style.removeProperty(v));
+  }
+
+  function stopAutoTheme() {
+    autoTheme = false;
+    rotatePending = false;
+    clearTimeout(autoTimer);
+  }
+
+  function setTheme(id, { animate = true, manual = true } = {}) {
+    if (!THEMES[id]) return false;
+    if (manual) stopAutoTheme();
+    cancelFade();
+    if (animate && !reduceMotion) {
+      root.classList.add('theme-switching');
+      clearTimeout(setTheme.t);
+      setTheme.t = setTimeout(() => root.classList.remove('theme-switching'), 520);
+    }
+    root.dataset.theme = id;
+    syncThemeUI(id);
     return true;
   }
-  setTheme(currentTheme(), { save: false, animate: false });
+  setTheme(currentTheme(), { animate: false, manual: false });
+
+  // Slow cross-fade: tween the accent RGB variables inline on <html>, so CSS and canvases
+  // (which read accent() every frame) shift colour together.
+  function fadeToTheme(id) {
+    if (reduceMotion) { setTheme(id, { manual: false }); return; }
+    cancelFade();
+    const from = THEME_VARS.map(readRGB);
+    root.dataset.theme = id;
+    const to = THEME_VARS.map(readRGB);
+    const paint = (k) => {
+      const cur = from.map((f, i) => f.map((c, j) => Math.round(c + (to[i][j] - c) * k)));
+      cur.forEach((rgb, i) => root.style.setProperty(THEME_VARS[i], rgb.join(' ')));
+      ACCENT = { a: cur[0], b: cur[2] };
+      window.dispatchEvent(new Event('themetween'));
+    };
+    const ease = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+    paint(0);
+    const t0 = performance.now();
+    const step = (t) => {
+      const p = Math.min(1, (t - t0) / THEME_FADE_MS);
+      paint(ease(p));
+      if (p < 1) { fadeRAF = requestAnimationFrame(step); return; }
+      fadeRAF = 0;
+      THEME_VARS.forEach((v) => root.style.removeProperty(v));
+      syncThemeUI(id);
+    };
+    fadeRAF = requestAnimationFrame(step);
+  }
+
+  function rotateTheme() {
+    if (!autoTheme) return;
+    if (document.hidden) { rotatePending = true; return; }   // wait until the tab is visible again
+    const others = Object.keys(THEMES).filter((t) => t !== currentTheme());
+    fadeToTheme(others[Math.floor(Math.random() * others.length)]);
+    autoTimer = setTimeout(rotateTheme, AUTO_THEME_MS);
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && rotatePending) { rotatePending = false; rotateTheme(); }
+  });
+  autoTimer = setTimeout(rotateTheme, AUTO_THEME_MS);
 
   (() => {
     const btn = $('#theme-btn');
@@ -1321,6 +1389,7 @@
     };
     setColours();
     window.addEventListener('themechange', () => { setColours(); draw(); });
+    window.addEventListener('themetween', setColours);   // follow the slow auto cross-fade
 
     const draw = () => {
       ctx.clearRect(0, 0, W, H);

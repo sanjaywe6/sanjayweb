@@ -5,12 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script>
     document.documentElement.classList.add('js');
-    // Apply the saved colour theme before first paint (default: Cyber.exe)
+    // Pick a random colour theme before first paint, so every visit starts differently
     (function () {
-      var t = 'cyber';
-      try { t = localStorage.getItem('sg-theme') || t; } catch (e) {}
-      if (!/^(cyber|matrix|blood)$/.test(t)) t = 'cyber';
-      document.documentElement.setAttribute('data-theme', t);
+      var themes = ['cyber', 'matrix', 'blood'];
+      document.documentElement.setAttribute('data-theme', themes[Math.floor(Math.random() * themes.length)]);
     })();
     // Failsafe: if main.js never runs, reveal everything instead of leaving content hidden.
     setTimeout(function () { if (!window.__sgReady) document.documentElement.classList.add('reveal-all', 'is-ready', 'no-boot'); }, 3000);
